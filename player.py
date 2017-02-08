@@ -50,6 +50,7 @@ class Inventory:
         for a in range(getRandomStat(seed)):
             item_id = getRandomStat(seed, 2)
             conts.append((item_id, 1))
+        conts.append((0, 30))
         conts.sort()
         return conts
 

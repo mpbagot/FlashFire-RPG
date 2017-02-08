@@ -31,7 +31,7 @@ class Game:
 
     def load(self, file):
         '''
-        Load preexisting variables from a given file.
+        Load pre-existing variables from a given file.
         '''
         print()
         try:
@@ -41,15 +41,18 @@ class Game:
                     if line.startswith('player'):
                         line = line[7:]
                         printf('Loading Player...')
+                        # Create a player object from the string
                         self.player = Player.get_by_string(line)
                     elif line.startswith('inv'):
                         printf('Loading Inventory...')
                         line = line.split('|')[1:]
+                        # Fill the player's inventory
                         self.player.inventory.contents = eval(line[0])
                     elif line.startswith('world'):
                         print()
                         printf('Loading World...')
                         line = line.split('|')[1:]
+                        # Generate a world from the file, Takes a while.
                         self.world = World.generate_from_file(eval(line[0]), pos=self.player.pos)
             printf('\nGame Load Complete!\n')
         except FileNotFoundError:
@@ -193,10 +196,12 @@ class Game:
         '''
         Save the current Singleplayer game to a file
         '''
+        # Generate the save file
         towrite = ['player|'+self.player.get_save_string(),
                    'inv|'+str(self.player.inventory.contents),
                    'world|'+self.world.get_save_string()]
         with open('save_default.sv', 'w') as f:
+            # Write the plain-text to a file
             f.write('\n'.join(towrite))
 
     def run_lan_com(self, comm, conn):
@@ -205,8 +210,10 @@ class Game:
         '''
 
         if comm.startswith('talk to '):
+            # Start a dialogue scenario on the server
             conn.send(('talk|begin_conv_'+comm.split()[-1]).encode())
             result = conn.recv(65536).decode().split("|")
+            # Loop the conversation back and forth and print, here on the client-side
             while result[-2].split()[-1] not in ('Goodbye.', 'Farewell!'):
                 printf(result[-2])
                 conn.send(('talk|'+input(self.player.name+': ')).encode())
@@ -233,12 +240,16 @@ class Game:
         '''
         Run a given command on a Singleplayer world.
         '''
+        comm = comm.lower()
         pos = self.player.pos
         node = self.world.get_node(pos[0], pos[1])
         print()
         #check for comm commands and run an action as a result
         if comm == "look around":
             return True
+
+        elif comm == 'show status':
+            printf('Status:\n{}\n\n{}'.format(str(self.player), str(self.player.inventory)))
 
         elif comm == 'save':
             # Create a new thread and save with that
@@ -252,25 +263,29 @@ class Game:
             raise KeyboardInterrupt
 
         elif comm == "show map":
+            # Generate a sub-array of the current area around the player
             array = [[self.world.get_node(pos[0]+a,pos[1]+b) for a in range(-3, 3) if pos[0] > -a and pos[0] < 999-a] for b in range(-2, 2) if pos[1] > -b and pos[1] < 999-b]
             map_art = []
             for i, row in enumerate(array):
-                # TODO check for north/south passages and clear the two middle hashes
+                # Check for north/south passages and clear the two middle hashes
                 if i != 0:
                     top = ''
+                    # Loop each node and create a top for the square on the map
+                    # to show if you can go north/south
                     for a in row:
                         top += '########' if not a.hasNorth else '###  ###'
+                    # Add the row to the map_art
                     map_art.append(top)
                 else:
+                    # If it's the top row then just create a solid border
                     map_art.append('#'*8*len(row))
                 for a in range(4):
-                    # TODO Check for east/west passages and clear the two middle hashes
-                    # TODO Add labels to the map squares
                     line = ''
                     for m, node in enumerate(row):
                         r = '#      #'
                         if a in (1,2):
                             if a == 1:
+                                # Generate the node name text and the walls on the map square (if applicable)
                                 if m == 3 and i == 2:
                                     r = "{}you're{}".format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
                                 elif node.typ == 'grass_plains':
@@ -278,44 +293,54 @@ class Game:
                                 else:
                                     r = "{}{}{}".format("#" if not node.hasWest else ' ', (' '*((6-len(node.typ))//2))+node.typ+(' '*((6-len(node.typ))//2)), '#' if not node.hasEast else ' ')
                             elif a == 2:
+                                # As above but with the second word of the node name if applicable
                                 if m == 3 and i == 2:
                                     r = "{} here!{}".format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
                                 elif node.typ == 'grass_plains':
                                     r = '{}plains{}'.format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
                                 else:
                                     r = "{}      {}".format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
-
+                        # Add it to the line
                         line += r
+                    # Add the line to the map_art
                     map_art.append(line)
-                # if i != len(array)-1:
-                #     bottom = ''
-                #     for a in row:
-                #         bottom += '########' if not a.hasSouth else '###  ###'
-                #     map_art.append(bottom)
-
+            # Add a bottom border to the map_art
             map_art.append("#"*(8*len(row)))
             for a in map_art:
+                # Print the map quickly
                 print(a)
 
         elif comm.startswith('talk to'):
-            g = dia = 0
+            dia = 0
+            # Create a list to be able to check which error occurs later on
+            g = [0,0]
             name = comm.split()[-1]
             if name == 'person':
+                # If the player is just looking for a random person
+                g = [0,1]
                 if len(node.npc) > 0:
-                    g = 1
+                    # If any person is found nearby then create a Dialogue with that person
+                    g = [1,1]
                     dia = Dialogue(self.player, node, node.npc[random.randint(0, len(node.npc)-1)])
 
             else:
+                # If the player is looking for a specific NPC
+                g[1] = 0
                 for n in node.npc:
+                    # Iterate through all NPC's nearby
                     if name == n.name:
-                        g = 2
+                        # If the NPC has the right name then adjust the array
+                        # and start a Dialogue with it
+                        g = [1,1]
                         dia = Dialogue(self.player, node, n)
             if dia != 0:
+                # If a dialogue was created then run it
                 Game.run_dialogue(dia)
                 print()
                 return
-            if g in (1,2):
-                printf('There\'s no-one here named that!' if g == 2 else 'There\'s no-one here!')
+            elif g in (1,2):
+                # If no dialogue was started then print an appropriate error
+                printf('There\'s no-one here named that!' if g[1] == 0 else 'There\'s no-one here!')
 
 
         elif comm.startswith('go'):
@@ -342,12 +367,16 @@ class Game:
 
     @staticmethod
     def run_dialogue(dial, over_lan=False):
+        '''
+        A static method to run a given dialogue object on a singleplayer world
+        '''
+        # Print the introducing statement
         printf(dial.start_talk())
         while not dial.is_finished():
+            # Input and respond with the dialogue whilst the NPC keeps talking
             response = input(dial.p_name+': ')
             text = dial.respond(response)
             printf(text)
-        return text
 
 class MP_Game:
     def __init__(self):
@@ -380,6 +409,7 @@ class MP_Game:
             printf('\nGame Load Complete!\n')
 
         except FileNotFoundError:
+            # Print an error and default to a new game if the input save file doesn't exist
             printf('Save File Not Found! Defaulting to New Game.')
             self.new()
 
@@ -411,7 +441,9 @@ class MP_Game:
             if data == "getdesc":
                 # Return the area description
                 string = self.world.get_description(p.pos)
+                # Loop through the player list to determine if any other players are nearby
                 for player in self.players:
+                    # If the player is here and not the current player then tell the current player about them
                     if player.name != p.name and player.pos == p.pos:
                         string += '\nPlayer {} is nearby!'.format(p.name)
                 # send the byte-encoded string to the client
@@ -427,6 +459,7 @@ class MP_Game:
                 # Add the user object to the players list
                 self.players.append(p)
                 self.world.s_chunk = [(p.pos[0]//10)-1, (p.pos[1]//10)-1]
+                # Make a new thread and generate a small area around the joining player in it
                 t = threading.Thread(target=self.world.generate_start, args=(self.world.diff, self.world.lod))
                 t.daemon = True
                 t.start()
@@ -436,32 +469,44 @@ class MP_Game:
             elif data == "disconnect":
                 break
             elif data.startswith('command'):
+                # Pull the command from the recieved message
                 comm = data.split('|')[-1]
+                # Reply with the correct response to the client
+                conn.send(self.run_command(comm, index).encode())
+                # Print that the player is leaving the game if they type exit
                 if comm == "exit":
                     printf('Player {} has exited the game!'.format(p.name))
-                conn.send(self.run_command(comm, index).encode())
+            # Handle dialogue over the lan communication.
             elif data.startswith('talk'):
                 comm = data.split('|')[-1]
                 if comm.startswith('begin_conv_'):
+                    # Start the dialogue if the conversation is just beginning
                     name = comm.split('_')[-1]
                     node = self.world.get_node(p.pos[0], p.pos[1])
                     dia = ''
+                    # If a random person was requested then pick a random person in the area
                     if name == 'person':
                         if len(node.npc) > 0:
                             n = node.npc[random.randint(0, len(node.npc)-1)]
                             dia = Dialogue(p, node, n)
+                    # If a name was selected then find if that person is in the area and begin dialogue
                     else:
                         for n in node.npc:
                             if n.name == name:
                                 dia = Dialogue(p, node, n)
+                    # If the suggested NPC is nearby then begin the talk
                     if dia:
                         text = dia.start_talk()
+                    # Otherwise print out that that person is not nearby.
                     else:
                         text = 'That person is not nearby!'
+                # If the dialogue is being continued then just return a response
                 elif dia:
                     text = dia.respond(comm)
+                # If the dialogue AI says goodbye then just quit
                 if text.endswith('Farewell!') or text.endswith('Goodbye.'):
                     node.npc[node.npc.index(n)].known_players += p.name
+                # Return the encoded response to the client to be printed
                 conn.send('{}|0'.format(text).encode())
         conn.close()
 
@@ -487,10 +532,13 @@ class MP_Game:
             return
 
         printf('Server Hosting successful!')
+        # Try to get the ip address, return '' if it couldn't be gotten
         ip = get_ip()
         if not ip:
+            # Tell the user that the IP Address couldn't be found
             printf('IP Address Unobtainable! Please use ipconfig or ifconfig to find this computer\'s local IP address')
         else:
+            # Print out the IP Address for clients to connect to
             printf('IP Address of server is:', ip)
         printf('Press Ctrl+C to exit at any time.')
         try:
@@ -519,49 +567,36 @@ class MP_Game:
         if comm == "look around":
             return text+'|1'
 
+        elif comm == 'show status':
+            text = '\nStatus:\n{}\n\n{}'.format(str(self.players[id]), str(self.players[id].inventory))
+
         elif comm == "exit":
             return 'disconnect'
 
-        elif comm.startswith('talk to'):
-            g = [0,0]
-            dia = 0
-            name = comm.split()[-1]
-            if name == 'person':
-                g = [0, 1]
-                if len(node.npc) > 0:
-                    g[0] = 1
-                    dia = Dialogue(self.players[id], node, node.npc[random.randint(0, len(node.npc)-1)])
-
-            else:
-                for n in node.npc:
-                    if name == n.name:
-                        g[1] = 1
-                        dia = Dialogue(self.players[id], node, n)
-            if dia != 0:
-                f = Game.run_dialogue(dia, True)
-                print()
-                text = f
-            if g[0] == 0 or g[1] == 0:
-                printf('There\'s no-one here named that!' if g[1] == 0 else 'There\'s no-one here!')
-
-
         elif comm == "show map":
+            # Get a small array of nodes immediately around the player
             array = [[self.world.get_node(pos[0]+a,pos[1]+b) for a in range(-3, 3) if pos[0] > -a and pos[0] < 999-a] for b in range(-2, 2) if pos[1] > -b and pos[1] < 999-b]
             map_art = []
             for i, row in enumerate(array):
                 # check for north/south passages and clear the two middle hashes
                 if i != 0:
+                    # generate the top row to determine if the nodes have north/south travel openings
                     top = ''
                     for a in row:
                         top += '########' if not a.hasNorth else '###  ###'
                     map_art.append(top)
                 else:
+                    # If at the top of the map, then just make a solid line
                     map_art.append('#'*8*len(row))
                 for a in range(4):
+                    # Generate the middle of the node square
                     line = ''
                     for m, node in enumerate(row):
+                        # Make an empty row with solid walls on either side
+                        # (used for first and last of the middle rows)
                         r = '#      #'
                         if a == 1:
+                            # Add the walls and node name words to the line
                             if m == 3 and i == 2:
                                 r = "{}you're{}".format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
                             elif node.typ == 'grass_plains':
@@ -569,6 +604,7 @@ class MP_Game:
                             else:
                                 r = "{}{}{}".format("#" if not node.hasWest else ' ', (' '*((6-len(node.typ))//2))+node.typ+(' '*((6-len(node.typ))//2)), '#' if not node.hasEast else ' ')
                         elif a == 2:
+                            # Same as above but for the second line of the node name
                             if m == 3 and i == 2:
                                 r = "{} here!{}".format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
                             elif node.typ == 'grass_plains':
@@ -576,11 +612,14 @@ class MP_Game:
                             else:
                                 r = "{}      {}".format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
 
+                        # Add the node string to the overall line
                         line += r
+                    # Add the line to the whole map_art array
                     map_art.append(line)
+            # Add a closing bottom line
             map_art.append("#"*(8*len(row)))
+            # Pass the entire array (joined with newlines) back to the client
             text = '\n'.join(map_art)
-
 
         elif comm.startswith('go'):
             # find the chosen direction
@@ -611,8 +650,8 @@ class MP_Game:
 def get_ip():
     import socket
     # 1: Use the gethostname method
-
     ipaddr = socket.gethostbyname(socket.gethostname())
+    # If the found IP Address is not a localhost IP then return it
     if not ipaddr.startswith('127'):
         return ipaddr
 
@@ -625,12 +664,14 @@ def get_ip():
 
         # Linux:
         arg='ip route list'
+        # Run the above command on the Bash Shell
         p=subprocess.Popen(arg,shell=True,stdout=subprocess.PIPE)
         data = p.communicate()
+        # Pull the output back in
         sdata = data[0].decode().split()
         try:
+            # Find the IP Address if there
             ipaddr = sdata[ sdata.index('src')+1 ]
-            return ipaddr
         except:
             return
 
@@ -638,16 +679,20 @@ def get_ip():
 
         # Windows:
         arg='route print 0.0.0.0'
+        # Run the above command on the Windows CMD shell
         p=subprocess.Popen(arg,shell=True,stdout=subprocess.PIPE)
         data = p.communicate()
+        # Pull the output back in
         strdata=data[0].decode()
         sdata = strdata.split()
 
+        # Loop through/parse to find the IP Address
         while len(sdata)>0:
             if sdata.pop(0)=='Netmask' :
                 if sdata[0]=='Gateway' and sdata[1]=='Interface' :
                     ipaddr=sdata[6]
                     break
-        return ipaddr
+    # Return any found IP Address
+    return ipaddr
 
 g = Game() if input("Launch Server or Singleplayer[MP/SP]: ") != 'MP' else MP_Game()

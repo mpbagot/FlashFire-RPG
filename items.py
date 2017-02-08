@@ -10,7 +10,7 @@ class Item:
         a = {}
         #Open the hidden items dictionary and get the attributes from it.
         for line in open(".items.pydc"):
-            line = line.split(',')
+            line = line.strip().split(',')
             if int(line[0]) == id:
                 a['name'] = line[1]
                 a['isFood'] = bool(line[2])

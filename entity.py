@@ -67,6 +67,9 @@ class Dialogue:
         self.far_from_civ = node.typ != 'city'
 
     def respond(self, text):
+        '''
+        Respond to a given input statement
+        '''
         text = 'test message'
         if random.randint(0, 2) == 0:
             self.is_finished = self._meh
@@ -74,14 +77,24 @@ class Dialogue:
         return '{}: {}'.format(self.g_name, text)
 
     def _meh(self):
+        '''
+        Stand in function to be swapped with is_finished.
+        and yes, I do realise I could do this more easily.
+        '''
         return True
 
     def is_finished(self):
+        '''
+        A function to determine if the dialogue has finished.
+        '''
         return False
 
     def start_talk(self):
+        '''
+        Begin the talk with the NPC.
+        '''
         if self.is_afraid:
-            return ('???: ...')
+            return ('{}: ...'.format(self.g_name))
 
         else:
             if self.g_speech == 'M':

@@ -20,6 +20,9 @@ def inputf(text):
   return input('')
 
 def log(text):
+    '''
+    Write a string to the log.txt, Only used for Debugging the Server
+    '''
     with open('log.txt') as f:
         t = f.read()
     with open('log.txt', 'w') as f:

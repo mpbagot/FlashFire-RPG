@@ -19,13 +19,18 @@ def getRandomStat(seed, chars=None):
     Get a random number, partially based of seed.
     '''
     if chars is None:
+        # Return a single character from the seed as an int
         return int(seed[random.randint(0, 63)])
     s = ''
+    # Pull a random segment of the seed, 'chars' characters long
     start = random.randint(0, 63-chars-1)
     s += seed[start:start+chars]
     return int(s)
 
 def isnum(n):
+    '''
+    Check if an input string is a valid integer
+    '''
     try:
         int(n)
         return True
@@ -49,8 +54,16 @@ class Inventory:
         return conts
 
     def __str__(self):
-        towrite = [str(Item(i, q)) for i, q in self.contents]
-        return '\n'.join(towrite)
+        '''
+        Create an directly printable string for the status command
+        '''
+        # Generate an Item() object list
+        inv = [Item(*a) for a in self.contents]
+        text = 'Inventory:\n'
+        # Iterate and create a string list of the Items in this inventory
+        for i, item in enumerate(inv):
+            text += '{}{}\n'.format(i+1, str(item))
+        return text
 
 class Player:
     def __init__(self, seed, name, pos):
@@ -64,10 +77,10 @@ class Player:
         '''
         Randomly generate starting stats for a player
         '''
-
         stats = {}
         #Set random numbers and add them to a stats dictionary
-        stats['health'] = getRandomStat(seed, 2)
+        stats['max_health'] = getRandomStat(seed, 2)
+        stats['health'] = stats['max_health']
         stats['defense'] = getRandomStat(seed, 2)
         stats['attack'] = getRandomStat(seed, 2)
         stats['trade_skill'] = getRandomStat(seed, 2)
@@ -76,7 +89,7 @@ class Player:
         return stats
 
     def __str__(self):
-        return '{} | Stats: {} | Co-ords: {}'.format(self.name, str(self.stats), self.pos)
+        return '/ {} / HP: {} / Co-ords: {} /'.format(self.name, str(self.stats['health'])+'/'+str(self.stats['max_health']), self.pos)
 
     def get_save_string(self):
         '''
@@ -86,7 +99,12 @@ class Player:
 
     @staticmethod
     def get_by_string(string):
+        '''
+        Generate a Player object from a save string
+        '''
         line = string.split('|')
+        # Initialise a new Player object
         p = Player(line[0], line[1], eval(line[2]))
         p.stats = eval(line[3])
+        # Set the stats and return
         return p

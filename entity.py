@@ -1,4 +1,5 @@
 import random
+import re
 
 class Enemy:
     def __init__(self, dif_ml, pos):
@@ -66,12 +67,35 @@ class Dialogue:
         self.is_afraid = player.name not in npc.known_players
         self.far_from_civ = node.typ != 'city'
 
-    def respond(self, text):
+        self.line_log = []
+        self.known_facts = {}
+
+    def respond(self, res):
         '''
         Respond to a given input statement
         '''
-        text = 'test message'
-        if random.randint(0, 2) == 0:
+        text = 'What you just said makes no sense.'
+        if self.is_question(res):
+            # This is true if res is just a question
+            text = self.parse_question(res)
+        else:
+            words = re.findall(r'\w', res)
+            # The text is either a conditional statement + (question or statement) or just simply a statement.
+            if words[0] in ('if', 'for', 'where', 'in'):
+                # Starts with a conditional statement, parse the question relative to it
+                condition = res.split(',')[0]
+                station = res.split(',')[1]
+                # Check if station is a statement or question
+                if not self.is_question(station):
+                    text = self.parse_statement(station, condition)
+                else:
+                    text = self.parse_question(station, condition)
+
+            else:
+                # The sentence is just a plain statement
+                text = self.parse_statement(res)
+
+        if res == "Goodbye":
             self.is_finished = self._meh
             text = 'Goodbye.'
         return '{}: {}'.format(self.g_name, text)
@@ -82,6 +106,29 @@ class Dialogue:
         and yes, I do realise I could do this more easily.
         '''
         return True
+
+    def is_question(self, res):
+        words = re.findall(r'\w+', res)
+        print(words)
+        if words[0] in ('who', 'what', 'when', 'where', 'why', 'how', 'are', 'is', 'isn\'t', 'isnt' 'will'):
+            if words[0] == 'will':
+                # If this is true then it'S a valid 'will something' question
+                return (words[1] in ('you', 'i', 'it', 'they', 'those', 'the', 'that') or (words[0][0].isupper() and words[0][1:].islower()))
+            else:
+                # If it's a valid question, not starting with 'will'
+                return True
+        else:
+            return False
+            # The text is either a conditional statement + (question or statement) or just simply a statement.
+
+    def parse_question(question, condition=None):
+        # TODO determine the result, either based on condition
+        # or not, and return the answer
+        return 'parsing question'
+
+    def parse_statement(question, condition=None):
+        # TODO store the information and say some remark about it.
+        return 'parsing statement'
 
     def is_finished(self):
         '''

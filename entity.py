@@ -1,5 +1,10 @@
 import random
 import re
+try:
+    import nltk
+    has_nltk = True
+except:
+    has_nltk = False
 
 class Enemy:
     def __init__(self, dif_ml, pos):
@@ -79,12 +84,13 @@ class Dialogue:
             # This is true if res is just a question
             text = self.parse_question(res)
         else:
-            words = re.findall(r'\w', res)
+            words = re.findall(r'\w+', res)
             # The text is either a conditional statement + (question or statement) or just simply a statement.
             if words[0] in ('if', 'for', 'where', 'in'):
                 # Starts with a conditional statement, parse the question relative to it
-                condition = res.split(',')[0]
-                station = res.split(',')[1]
+                condition = res.split(',')[0].strip()
+                station = res.split(',')[1].strip()
+                print(station)
                 # Check if station is a statement or question
                 if not self.is_question(station):
                     text = self.parse_statement(station, condition)
@@ -108,12 +114,14 @@ class Dialogue:
         return True
 
     def is_question(self, res):
+        '''
+        Determine if the input statement is a question or statement
+        '''
         words = re.findall(r'\w+', res)
-        print(words)
-        if words[0] in ('who', 'what', 'when', 'where', 'why', 'how', 'are', 'is', 'isn\'t', 'isnt' 'will'):
+        if words[0] in ('who', 'would', 'am', 'what', 'when', 'where', 'why', 'how', 'are', 'is', 'isn\'t', 'isnt', 'does', 'do', 'did', 'will'):
             if words[0] == 'will':
                 # If this is true then it'S a valid 'will something' question
-                return (words[1] in ('you', 'i', 'it', 'they', 'those', 'the', 'that') or (words[0][0].isupper() and words[0][1:].islower()))
+                return (words[1] in ('you', 'i', 'it', 'they', 'those', 'the', 'that', 'he', 'she') or (words[0][0].isupper() and words[0][1:].islower()))
             else:
                 # If it's a valid question, not starting with 'will'
                 return True
@@ -121,14 +129,66 @@ class Dialogue:
             return False
             # The text is either a conditional statement + (question or statement) or just simply a statement.
 
-    def parse_question(question, condition=None):
+    def parse_question(self, question, condition=None):
+        '''
+        Determine what the user is asking and answer if possible
+        '''
         # TODO determine the result, either based on condition
         # or not, and return the answer
-        return 'parsing question'
 
-    def parse_statement(question, condition=None):
-        # TODO store the information and say some remark about it.
-        return 'parsing statement'
+        if not condition:
+            # Parse a standard question without a conditional statement.
+            if not has_nltk:
+                sentence = nltk.word_tokenize(question)
+                tags = nltk.pos_tag(sentence)
+                topic = ''
+                needed_value = ''
+                for tag in tags:
+                    print(tag)
+                    if tag[1] in ('PRP', 'PRP$', 'NNP'):
+                        topic += ' {}'.format(tag[0])
+                    elif tag[1] in ('NN', 'JJ'):
+                        if tag[0][0].isupper():
+                            topic += ' {}'.format(tag[0])
+                            continue
+                        needed_value += tag[0]
+                topic = topic.strip()
+                print('Topic is {}, Needed Value is {}'.format(topic, needed_value))
+            else:
+                q = question.lower()
+                if q.startswith('what is your name'):
+                    return 'My name is {}, What\'s your\'s?'
+                elif q.startswith('how are you'):
+                    if self.in_strife:
+                        return 'Actually, I need your help.'
+                    else:
+                        return 'I\'m fine, thank you.'
+                elif q.startswith('whats the problem'):
+                    # Tell them the quest
+                    return ''
+        else:
+            # Parse a question taking into account the given condition.
+            pass
+        return 'Nothing you are saying make\'s any sense!!!'
+
+    def parse_statement(self, statement, condition=None):
+        '''
+        Determine what the user is telling you and store it as fact,
+        even if it's cleary wrong.
+        '''
+        if has_nltk:
+            # TODO store the information and say some remark about it.
+            if not condition:
+                # Parse a standard statement without a conditional statement.
+                pass
+            else:
+                # Parse a statement taking into account the given condition.
+                pass
+        else:
+            q = statement.lower()
+            if q.startswith('kill yourself') or q.startswith('kill myself') or 'kms' in q or 'kys' in q:
+                return open('.talk.txt').read()
+        return ('Really?', 'That\'s amazing!', 'Meh.', 'You\'re a genius!', 'I agree.')[random.randint(0, 3)]
 
     def is_finished(self):
         '''

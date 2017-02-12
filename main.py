@@ -313,34 +313,31 @@ class Game:
         elif comm.startswith('talk to'):
             dia = 0
             # Create a list to be able to check which error occurs later on
-            g = [0,0]
+            g = [1,0]
             name = comm.split()[-1]
-            if name == 'person':
+            name = name[0].upper() + name[1:]
+            if name == 'Person':
                 # If the player is just looking for a random person
-                g = [0,1]
                 if len(node.npc) > 0:
-                    # If any person is found nearby then create a Dialogue with that person
-                    g = [1,1]
+                    # If any person is found nearby then create a dialogue with that person
                     dia = Dialogue(self.player, node, node.npc[random.randint(0, len(node.npc)-1)])
 
             else:
                 # If the player is looking for a specific NPC
-                g[1] = 0
                 for n in node.npc:
                     # Iterate through all NPC's nearby
                     if name == n.name:
                         # If the NPC has the right name then adjust the array
                         # and start a Dialogue with it
-                        g = [1,1]
                         dia = Dialogue(self.player, node, n)
             if dia != 0:
                 # If a dialogue was created then run it
                 Game.run_dialogue(dia)
                 print()
                 return
-            elif g in (1,2):
+            else:
                 # If no dialogue was started then print an appropriate error
-                printf('There\'s no-one here named that!' if g[1] == 0 else 'There\'s no-one here!')
+                printf('There\'s no-one here named that!' if name != "Person" else 'There\'s no-one here!')
 
 
         elif comm.startswith('go'):
@@ -482,10 +479,11 @@ class MP_Game:
                 if comm.startswith('begin_conv_'):
                     # Start the dialogue if the conversation is just beginning
                     name = comm.split('_')[-1]
+                    name = name[0].upper() + name[1:]
                     node = self.world.get_node(p.pos[0], p.pos[1])
                     dia = ''
                     # If a random person was requested then pick a random person in the area
-                    if name == 'person':
+                    if name == 'Person':
                         if len(node.npc) > 0:
                             n = node.npc[random.randint(0, len(node.npc)-1)]
                             dia = Dialogue(p, node, n)

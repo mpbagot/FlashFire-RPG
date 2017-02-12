@@ -27,8 +27,9 @@ class World:
         x,y = self.s_chunk[0], self.s_chunk[1]
         for a in range(3):
             for b in range(3):
-                if self.chunk_array[y+a][x+b] == 0:
-                    self.chunk_array[y+a][x+b] = self.make_chunk(x+b, y+a, difficulty, lod)
+                if x+b < 999 and y+a < 999:
+                    if self.chunk_array[y+a][x+b] == 0:
+                        self.chunk_array[y+a][x+b] = self.make_chunk(x+b, y+a, difficulty, lod)
 
     def generate_world(self, x, y, difficulty, lod, show_bar=False):
         # Loop the chunk array

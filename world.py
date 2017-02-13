@@ -27,7 +27,7 @@ class World:
         x,y = self.s_chunk[0], self.s_chunk[1]
         for a in range(3):
             for b in range(3):
-                if x+b < 999 and y+a < 999:
+                if x+b < 99 and y+a < 99:
                     if self.chunk_array[y+a][x+b] == 0:
                         self.chunk_array[y+a][x+b] = self.make_chunk(x+b, y+a, difficulty, lod)
 

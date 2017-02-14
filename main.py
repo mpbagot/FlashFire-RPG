@@ -1,3 +1,5 @@
+#! /usr/env python3
+
 from random import *
 import hashlib
 import socket

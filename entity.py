@@ -155,7 +155,6 @@ class Dialogue:
                 needed_value = ''
                 # Iterate and fill in the topic and value tags
                 for tag in tags:
-                    print(tag)
                     if tag[1] in ('PRP', 'PRP$', 'NNP'):
                         topic += ' {}'.format(tag[0])
                     elif tag[1] in ('NN', 'JJ'):
@@ -166,12 +165,24 @@ class Dialogue:
                             continue
                         needed_value += tag[0]
                 topic = topic.strip()
-                print('Topic is {}, Needed Value is {}'.format(topic, needed_value))
+                # print('Topic is {}, Needed Value is {}'.format(topic, needed_value))
 
                 # Iterate and return the known details on the topic
                 for obj in self.known_facts:
-                    if obj.name == topic:
-                        return '{} is {}'.format(topic+'\'s '+needed_value if topic != 'npc' else 'My '+needed_value, obj.stats[value_needed])
+                    if obj.name == topic.lower():
+                        x = obj.stats.get(needed_value)
+                        val = '' if not x else x
+                        if not val:
+                            for synset in nltk.corpus.wordnet.synsets(needed_value):
+                                for lemma in synset.hyponyms():
+                                    for word in lemma.lemma_names():
+                                        m = obj.stats.get(' '.join(word.split('_')))
+                                        if m != None:
+                                            val = m
+                                            break
+                        if val:
+                            return val[0].upper() + val[1:]
+                return 'I don\'t know.'
             # If the NLTK isn't installed then just have some preset responses.
             else:
                 # lowercase the question to make checking easier
@@ -213,16 +224,16 @@ class Dialogue:
                 # Parse a standard statement without a conditional statement.
 
                 # Tokenise and Tag the words in the sentence
-                sentence = nltk.word_tokenize(question)
+                sentence = nltk.word_tokenize(statement)
                 tags = nltk.pos_tag(sentence)
 
                 # Set empty topic and value strings
                 topic = ''
+                stat = ''
                 value = ''
 
                 # Iterate and fill in the topic and value tags
                 for tag in tags:
-                    print(tag)
                     if tag[1] in ('PRP', 'PRP$', 'NNP'):
                         topic += ' {}'.format(tag[0])
                     elif tag[1] in ('NN', 'JJ'):
@@ -231,9 +242,17 @@ class Dialogue:
                         if tag[0][0].isupper() or (tag[1] == 'NN' and topic == '') or (tag[1] == 'JJ' and g):
                             topic += ' {}'.format(tag[0])
                             continue
-                        value += tag[0]
+                        stat += ' '+tag[0]
+                    elif tag[1] in ('CD', 'JJ'):
+                        value = tag[0]
                 topic = topic.strip()
-                print('Topic is {}, Needed Value is {}'.format(topic, value))
+                stat = stat.strip()
+
+                print('Topic is {}, Needed Value is {}'.format(topic, stat))
+                statement = [a if a != 'i' else 'you' for a in statement.lower().split()]
+                statement = ' '.join(statement)
+                obj = Topic(topic.lower(), {stat:statement})
+                self.known_facts.append(obj)
 
             else:
                 # Parse a statement taking into account the given condition.

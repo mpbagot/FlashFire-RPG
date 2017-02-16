@@ -4,7 +4,8 @@ try:
     import nltk
     has_nltk = True
 except:
-    has_nltk = False
+    pass
+has_nltk = False
 
 class Enemy:
     def __init__(self, dif_ml, pos):
@@ -270,10 +271,10 @@ class Dialogue:
             # and to leave and never return! (User can still talk to NPC)
             bad_verbs = ('kill', 'murder', 'rape')
             for v in bad_verbs:
-                if b+' you' in q:
+                if v+' you' in q:
                     return b[0].upper()+b[1:] + ' is wrong! LEAVE AND NEVER RETURN!!!'
         # Act surprised when no other response can be made
-        return ('Really?', 'That\'s amazing!', 'Meh.', 'You\'re a genius!', 'I agree.')[random.randint(0, 3)]
+        return ('Really?', 'That\'s amazing!', 'Meh.', 'You\'re a genius!', 'I agree.')[random.randint(0, 4)]
 
     def is_finished(self):
         '''

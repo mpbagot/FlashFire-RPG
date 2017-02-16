@@ -7,7 +7,6 @@
 4/2/17 - Integrate sockets into Game engine to allow for multiplayer,
 	 was broken.
 
-5/2/17 - Rewrite the game into a dedicated server and client to allow working
-	 multiplayer.
+5/2/17 - Rewrite the game into a dedicated server and client to allow 		 working multiplayer.
 
 6/2/17 - Add map printer to display the map

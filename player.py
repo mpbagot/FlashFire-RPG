@@ -38,11 +38,11 @@ def isnum(n):
         return False
 
 class Inventory:
-    def __init__(self, seed, name):
-        self.contents = self.generateContents(seed)
+    def __init__(self, seed, name, give_gold):
+        self.contents = self.generateContents(seed, give_gold)
         self.player = name
 
-    def generateContents(self, seed):
+    def generateContents(self, seed, give_gold):
         '''
         Randomly populate an Inventory.
         '''
@@ -50,7 +50,8 @@ class Inventory:
         for a in range(getRandomStat(seed)):
             item_id = getRandomStat(seed, 2)
             conts.append((item_id, 1))
-        conts.append((0, 30))
+        if give_gold:
+            conts.append((0, 30))
         conts.sort()
         return conts
 
@@ -67,12 +68,12 @@ class Inventory:
         return text
 
 class Player:
-    def __init__(self, seed, name, pos):
+    def __init__(self, seed, name, pos, give_gold=True):
         self._seed = seed
         self.stats = self.generateStats(seed)
         self.name = name
         self.pos = pos
-        self.inventory = Inventory(seed, name)
+        self.inventory = Inventory(seed, name, give_gold)
 
     def generateStats(self, seed):
         '''

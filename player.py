@@ -64,7 +64,12 @@ class Inventory:
         text = 'Inventory:\n'
         # Iterate and create a string list of the Items in this inventory
         for i, item in enumerate(inv):
-            text += '{} - {}\n'.format(i+1, str(item))
+            x = '{} - {}'.format(i+1, str(item))
+            x += ' '*(40-len(x))
+            if i%2 == 1:
+                x += '\n'
+            text += x
+
         return text
 
 class Player:

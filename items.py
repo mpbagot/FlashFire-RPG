@@ -13,7 +13,7 @@ class Item:
             line = line.strip().split(',')
             if int(line[0]) == id:
                 a['name'] = line[1]
-                a['isFood'] = bool(line[2])
+                a['type'] = line[2]
                 a['h_restore'] = int(line[3])
                 a['damage'] = int(line[4])
                 a['damage_resist'] = int(line[5])

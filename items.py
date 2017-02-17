@@ -2,6 +2,7 @@ class Item:
     def __init__(self, id, quantity):
         self.quantity = quantity
         self.attrs = self.getAttributes(id)
+        self.type = self.attrs['type']
 
     def getAttributes(self, id):
         '''

@@ -40,7 +40,81 @@ def isnum(n):
 class Inventory:
     def __init__(self, seed, name, give_gold):
         self.contents = self.generateContents(seed, give_gold)
+        self.equipped = {'left':None, 'right':None, 'armour':None}
         self.player = name
+
+    def modify(self, over_lan=False, conn=None):
+        text = ''
+        while True:
+            print(text)
+
+            if not over_lan:
+                print(text)
+                comm = inputf('|-Inv Command-> ').split()
+            else:
+                print(text)
+                conn.send(text.encode())
+                comm = conn.recv(1024).decode()
+
+            if comm[0] in ('equip', 'drop', 'eat'):
+                try:
+                    # Try to get the item
+                    item = Item(*self.contents[int(comm[1])-1])
+                except IndexError:
+                    # Or error if you dont have that item in the inventory
+                    text = ('There\'s no Item with that Item Index.')
+                    print('error!!!')
+                    continue
+
+            if comm[0] == 'show inv':
+                # return the inventory string, just like with the show status command
+                text = self.__str__()
+
+            elif comm[0] == 'equip':
+                spot = comm[2]
+                # Check if given spot is valid
+                if spot not in ('armour', 'left', 'right'):
+                    text = ('Invalid Equipment Spot!')
+                    continue
+                # Check that all item types are valid
+                elif spot == 'armour' and item.type != 'clothes':
+                    text = ('You can\'t wear that!')
+                    continue
+                elif item.type not in ('weapon', 'shield', 'spell'):
+                    text = ('You can\'t equip that!')
+                    continue
+                # If everything is all sweet then equip the item
+                else:
+                    self.equipped[spot] = item
+
+            elif comm[0] == 'drop':
+                quant = int(comm[2])
+                # Drop the given quantity if you have enough in your inventory
+                if self.contents[int(comm[1])-1][1] > quant:
+                    text = ('Dropping {} {}'.format(quant, item.attrs['name']))
+                    self.contents[int(comm[1])-1][1] -= quant
+                else:
+                    # Drop the whole stack if the quantity is too great
+                    text = ('Dropping all {}'.format(item.attrs['name']))
+                    del self.contents[int(comm[1])-1]
+                print(text)
+
+            elif comm[0] == 'eat':
+                if item.type == 'food':
+                    # Eat the food, reducing the stack quantity
+                    if self.contents[int(comm[1])-1][1] > 1:
+                        self.contents[int(comm[1])-1][1] -= 1
+                    else:
+                        del self.contents[int(comm[1])-1]
+                    # Add and stabilise the players health
+                    self.player.stats['health'] += item.attrs['h_restore']
+                    self.player.stats['health'] = self.player.stats['max_health']
+                else:
+                    # Error if it's not food
+                    text = ('You can\'t eat that!')
+            # Quit the inventory modification menu
+            elif comm[0] in ('done', 'exit', 'quit'):
+                break
 
     def generateContents(self, seed, give_gold):
         '''

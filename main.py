@@ -68,6 +68,7 @@ class Game:
         #Ask for difficulty, used for world gen
         print()
         diff = inputf("Difficulty[easy/medium/hard]: ")
+        print()
         #Default to medium if entry is invalid
         diff = "medium" if diff not in ('easy', 'medium', 'hard') else diff
 
@@ -95,9 +96,9 @@ class Game:
 
         #And create a Player object with it and the name
         self.player = Player(seed, name, pos)
-        printf("\nCharacter Generation Complete!")
+        printf("Character Generation Complete!")
         print()
-        sleep(1.5)
+        sleep(1)
 
     def join_server(self, addr):
         '''
@@ -220,6 +221,16 @@ class Game:
                 printf(result[-2])
                 conn.send(('talk|'+input(self.player.name+': ')).encode())
                 result = conn.recv(65536).decode().split("|")
+        elif comm == 'inventory':
+            conn.send('inventory'.encode())
+            conn.send(inputf('|-Inv Command-> ').encode())
+            result = conn.recv(1024).decode().split('|')
+            print(result)
+            while not result[-1] in ('exit', 'quit', 'done'):
+                printf(result[-1])
+                conn.send(inputf('|-Inv Command->').encode())
+                result = conn.recv(1024).decode().split('|')
+
         else:
             conn.send(("command|"+comm).encode())
             result = conn.recv(65536).decode().split("|")
@@ -231,7 +242,7 @@ class Game:
             self.player.pos = eval(r[0])
             self.player.inventory.contents = eval(r[1])
             self.player.stats = eval(r[2])
-        if comm != 'show map':
+        if comm not in ('show map', 'inventory'):
             printf(result[-2])
         else:
             print(result[-2])
@@ -252,6 +263,9 @@ class Game:
 
         elif comm == 'show status':
             printf('Status:\n{}\n\n{}'.format(str(self.player), str(self.player.inventory)))
+
+        elif comm == 'inventory':
+            self.player.inventory.modify()
 
         elif comm == 'save':
             # Create a new thread and save with that
@@ -475,6 +489,9 @@ class MP_Game:
                 # Print that the player is leaving the game if they type exit
                 if comm == "exit":
                     printf('Player {} has exited the game!'.format(p.name))
+            elif data.startswith('inventory'):
+                self.players[index].inventory.modify(True, conn)
+
             # Handle dialogue over the lan communication.
             elif data.startswith('talk'):
                 comm = data.split('|')[-1]

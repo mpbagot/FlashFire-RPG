@@ -198,18 +198,35 @@ class Area_Node:
         string = ''
         with open('desc.txt') as f:
             l = [a.split('|') for a in f.read().split('\n') if a != '']
-            dc = {a[0]:a[1] for a in l}
+            dc = {a[0]:a[1:] for a in l}
+
+        d2 = {'North':self.hasNorth, 'South':self.hasSouth, 'East':self.hasEast, 'West':self.hasWest}
+        if all([d2[a] for a in d2]):
+            string += 'There are passage\'s in all directions.'
+        else:
+            s = False
+            for a in d2:
+                if d2[a]:
+                    if s:
+                        string += ', another leads to the {}'.format(a)
+                        s = False
+                        continue
+                    string += '\nA passage leads to the {}'.format(a)
+                    s = True
+
+        string += '\n'
 
         if len(self.npc) == 1:
             string += '\nA strange person stands nearby. They appear harmless, but possibly afraid.'
-        elif len(self.npc) > 1:
+        elif len(self.npc) > 3:
             string += '\nA group of people cower nearby. They seem greatly afraid of something.'
 
         if len(self.enemies) > 3:
             string += '\nYou are surrounded by enemies!'
         else:
             string += ('\nThere '+('are {} enemies' if len(self.enemies) != 1 else 'is {} enemy')+' nearby.').format(len(self.enemies))
-        return dc[self.typ] + string
+        x = len(dc[self.typ])-1
+        return dc[self.typ][random.randint(0, x)] + string
 
     def __str__(self):
         '''

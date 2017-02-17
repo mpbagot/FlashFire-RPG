@@ -12,9 +12,9 @@ from time import *
 
 class Game:
     def __init__(self):
-        print("===========================")
-        print("||Random Name for a Game!||")
-        print("===========================")
+        print("=================")
+        print("||FlashFire RPG||")
+        print("=================")
         print('')
         play = input('Would you like to start a new game join a LAN server or load a previous save?[new/join/load] ')
         self.id = 0

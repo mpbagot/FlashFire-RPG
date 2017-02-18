@@ -225,11 +225,15 @@ class Game:
             conn.send('inventory'.encode())
             conn.send(inputf('|-Inv Command-> ').encode())
             result = conn.recv(1024).decode().split('|')
-            print(result)
             while not result[-1] in ('exit', 'quit', 'done'):
                 printf(result[-1])
                 conn.send(inputf('|-Inv Command->').encode())
                 result = conn.recv(1024).decode().split('|')
+            hp_change = int(result[0])
+            self.player.stats['health'] += hp_change
+            if self.player.stats['health'] > self.player.stats['max_health']:
+                self.player.stats['health'] = self.player.stats['max_health']
+            return
 
         else:
             conn.send(("command|"+comm).encode())
@@ -242,7 +246,7 @@ class Game:
             self.player.pos = eval(r[0])
             self.player.inventory.contents = eval(r[1])
             self.player.stats = eval(r[2])
-        if comm not in ('show map', 'inventory'):
+        if comm not in ('show map'):
             printf(result[-2])
         else:
             print(result[-2])

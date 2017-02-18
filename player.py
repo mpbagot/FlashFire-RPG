@@ -45,16 +45,14 @@ class Inventory:
 
     def modify(self, over_lan=False, conn=None):
         text = ''
+        hp_change = 0
         while True:
-            print(text)
 
             if not over_lan:
-                print(text)
                 comm = inputf('|-Inv Command-> ').split()
             else:
-                print(text)
                 conn.send(text.encode())
-                comm = conn.recv(1024).decode()
+                comm = conn.recv(1024).decode().split()
 
             if comm[0] in ('equip', 'drop', 'eat'):
                 try:
@@ -66,7 +64,7 @@ class Inventory:
                     print('error!!!')
                     continue
 
-            if comm[0] == 'show inv':
+            if comm[0] in ('show', 'list'):
                 # return the inventory string, just like with the show status command
                 text = self.__str__()
 
@@ -92,28 +90,31 @@ class Inventory:
                 # Drop the given quantity if you have enough in your inventory
                 if self.contents[int(comm[1])-1][1] > quant:
                     text = ('Dropping {} {}'.format(quant, item.attrs['name']))
-                    self.contents[int(comm[1])-1][1] -= quant
+                    x = list(self.contents[int(comm[1])-1])
+                    x[1] -= quant
+                    self.contents[int(comm[1])-1] = tuple(x)
                 else:
                     # Drop the whole stack if the quantity is too great
                     text = ('Dropping all {}'.format(item.attrs['name']))
                     del self.contents[int(comm[1])-1]
-                print(text)
 
             elif comm[0] == 'eat':
                 if item.type == 'food':
                     # Eat the food, reducing the stack quantity
                     if self.contents[int(comm[1])-1][1] > 1:
-                        self.contents[int(comm[1])-1][1] -= 1
+                        x = list(self.contents[int(comm[1])-1])
+                        x[1] -= quant
+                        self.contents[int(comm[1])-1] = tuple(x)
                     else:
                         del self.contents[int(comm[1])-1]
-                    # Add and stabilise the players health
-                    self.player.stats['health'] += item.attrs['h_restore']
-                    self.player.stats['health'] = self.player.stats['max_health']
+                    # TODO Add and stabilise the players health
+                    hp_change += item.attrs['h_restore']
                 else:
                     # Error if it's not food
                     text = ('You can\'t eat that!')
             # Quit the inventory modification menu
             elif comm[0] in ('done', 'exit', 'quit'):
+                conn.send('{}|exit'.format(hp_change).encode())
                 break
 
     def generateContents(self, seed, give_gold):

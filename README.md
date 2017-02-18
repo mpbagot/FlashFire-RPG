@@ -5,6 +5,10 @@ development of FlashFire RPG.
 
 # How To Play:
 
+    For further documentation on gameplay, please visit
+	http://tick-it-media.tk:8888/flfrwiki
+
+# Features
  - Singleplayer:
     The game provides a singleplayer game which allows the player to play
     through the entire storyline of the game as well as save their

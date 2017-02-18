@@ -269,7 +269,9 @@ class Game:
             printf('Status:\n{}\n\n{}'.format(str(self.player), str(self.player.inventory)))
 
         elif comm == 'inventory':
-            self.player.inventory.modify()
+            self.player.stats['health'] += self.player.inventory.modify()
+            if self.player.stats['health'] > self.player.stats['max_health']:
+                self.player.stats['health'] = self.player.stats['max_health']
 
         elif comm == 'save':
             # Create a new thread and save with that

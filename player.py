@@ -49,6 +49,7 @@ class Inventory:
         while True:
 
             if not over_lan:
+                printf(text)
                 comm = inputf('|-Inv Command-> ').split()
             else:
                 conn.send(text.encode())
@@ -114,7 +115,10 @@ class Inventory:
                     text = ('You can\'t eat that!')
             # Quit the inventory modification menu
             elif comm[0] in ('done', 'exit', 'quit'):
-                conn.send('{}|exit'.format(hp_change).encode())
+                if over_lan:
+                    conn.send('{}|exit'.format(hp_change).encode())
+                else:
+                    return hp_change
                 break
 
     def generateContents(self, seed, give_gold):

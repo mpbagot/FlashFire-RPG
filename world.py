@@ -95,17 +95,23 @@ class World:
         #surrounding nodes and randomness
         hasNorth = hasSouth = hasEast = hasWest = False
         while [hasNorth, hasSouth, hasEast, hasWest].count(True) < 2:
+            # If we are not on the far left then
+            # check if the node to the east allows westward motion or randomly create a passage
             if x > 0:
                 if random.randint(0, 5) == 0 or chunk.get_node(x-1,y).hasEast:
                     hasWest = True
+            # Create an inter-chunk passage to the west if not on the world border and pass random check
             elif random.randint(0, 3) != 0 and not chunk.is_far_west():
                 hasWest = True
+            # Same as the top except for the eastward passage
             if x < 9:
                 if random.randint(0, 5) == 0:
                     hasEast = True
+            # Create an inter-chunk passage to the east if not on the world border and pass random check.
             elif random.randint(0, 3) != 0 and not chunk.is_far_east():
                 hasEast = True
 
+            # Literally the same as all above except for north/south motion
             if y > 0:
                 if random.randint(0, 5) == 0 or chunk.get_node(x,y-1).hasSouth:
                     hasNorth = True
@@ -125,30 +131,39 @@ class World:
 
         #generate a type for the node, generates cities in blocks
         types = ['forest', 'desert', 'grass_plains']
+        # Check if a city is nearby and keep generating it.
         i = x > 0 and y > 0 and chunk.get_node(x-1, y-1).typ == 'city'
         j = x > 0 and chunk.get_node(x-1, y).typ == 'city'
         k = y > 0 and chunk.get_node(x,y-1).typ == 'city'
         if (i or j or k) and random.randint(0, 3) != 0:
             typ = 'city'
         else:
-            if random.randint(0, 499999) == 0:
+            # If not a city then possibly add a city or just pick an area type
+            if random.randint(0, 49999) == 0:
                 typ = 'city'
             else:
                 typ = types[random.randint(0,2)]
 
-        # TODO spawn npc's randomly and populate this list.
+        # spawn npc's randomly and populate this list.
         npc = []
         pos = (x, y)
         if random.randint(0, 5)//dc[dif] > 0:
             for a in range(random.randint(0, 4)):
                 npc.append(NPC(pos))
 
+        # Return the generated Area_Node object
         return Area_Node(hasNorth, hasSouth, hasEast, hasWest, enemies, typ, npc)
 
     def get_node(self, x, y):
+        '''
+        Get a node at the given world coordinates
+        '''
         return self.chunk_array[y//10][x//10].array[y%10][x%10]
 
     def get_chunk(self, x, y):
+        '''
+        Get the chunk at the given world coordinates
+        '''
         return self.chunk_array[y//10][x//10]
 
 class Chunk:
@@ -157,30 +172,52 @@ class Chunk:
         self.array = [[0 for a in range(10)] for b in range(10)]
 
     def get_node(self, x, y):
+        '''
+        Get a node within the chunk's node array
+        '''
         return self.array[y][x]
 
     @staticmethod
     def get_by_string(pos, details):
+        '''
+        Get a chunk object from a save string
+        '''
         chunk = Chunk(pos)
         for i, row in enumerate(details):
             for j, node in enumerate(row):
+                # Add a loaded node to the array
                 chunk.array[i][j] = Area_Node.get_by_string(node)
         return chunk
 
     def __str__(self):
-        array = [[str(self.array[b][a]) for a in range(10)] for b in range(10)]
+        '''
+        Generate a string for saving the chunk
+        '''
+        array = [[str(self.array[b][a]) for a in range(len(self.array))] for b in range(self.array[0])]
         return str(array)
 
     def is_far_south(self):
+        '''
+        Determine if the chunk is on the southern edge of the world
+        '''
         return self.pos[1] == 999
 
     def is_far_north(self):
+        '''
+        Determine if the chunk is on the northern edge of the world
+        '''
         return self.pos[1] == 0
 
     def is_far_east(self):
+        '''
+        Determine if the chunk is on the eastern edge of the world
+        '''
         return self.pos[0] == 999
 
     def is_far_west(self):
+        '''
+        Determine if the chunk is on the western edge of the world
+        '''
         return self.pos[0] == 0
 
 class Area_Node:
@@ -197,35 +234,39 @@ class Area_Node:
         '''
         string = ''
         with open('desc.txt') as f:
+            # Load the description dictionary
             l = [a.split('|') for a in f.read().split('\n') if a != '']
             dc = {a[0]:a[1:] for a in l}
 
         d2 = {'North':self.hasNorth, 'South':self.hasSouth, 'East':self.hasEast, 'West':self.hasWest}
+        # Get the passage description based on the movable directions
         if all([d2[a] for a in d2]):
             string += 'There are passage\'s in all directions.'
         else:
-            s = False
             for a in d2:
                 if d2[a]:
-                    if s:
-                        string += ', another leads to the {}'.format(a)
-                        s = False
+                    # If the direction is travalable (?) then add the notification to the description string
+                    if string[-1] not in ('.', '\n'):
+                        string += ', another leads to the {}.'.format(a)
                         continue
                     string += '\nA passage leads to the {}'.format(a)
-                    s = True
-
         string += '\n'
 
         if len(self.npc) == 1:
+            # If there's one person nearby then tell the player that
             string += '\nA strange person stands nearby. They appear harmless, but possibly afraid.'
         elif len(self.npc) > 3:
+            # If there's a few then tell the player that there is a group
             string += '\nA group of people cower nearby. They seem greatly afraid of something.'
 
         if len(self.enemies) > 3:
+            # If there are lots of enemies then tell the player that they are in trouble!
             string += '\nYou are surrounded by enemies!'
         else:
+            # Otherwise just state the number of enemies.
             string += ('\nThere '+('are {} enemies' if len(self.enemies) != 1 else 'is {} enemy')+' nearby.').format(len(self.enemies))
         x = len(dc[self.typ])-1
+        # Return the area description + the other details.
         return dc[self.typ][random.randint(0, x)] + string
 
     def __str__(self):
@@ -242,6 +283,7 @@ class Area_Node:
         '''
         enems = []
         for a in self.enemies:
+            # Convert the enemy object into a string
             enems.append(str(a))
         return str(enems)
 

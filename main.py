@@ -12,6 +12,10 @@ from time import *
 
 class Game:
     def __init__(self):
+        # import pygame
+        # pygame.init()
+        # pygame.mixer.music.load('music/main.mp3')
+        # pygame.mixer.music.play()
         print("=================")
         print("||FlashFire RPG||")
         print("=================")
@@ -517,6 +521,17 @@ class MP_Game:
                         for n in node.npc:
                             if n.name == name:
                                 dia = Dialogue(p, node, n)
+                        if not dia:
+                            # If no NPC's were found then check the players
+                            for player in self.players:
+                                if player != p and player.pos == p.pos and player.name.lower() == name.lower():
+                                    # Set the players as in conversation so they wont be interrupted.
+                                    self.players[self.players.index(player)].in_conversation = True
+                                    self.players[index].in_conversation = True
+                                    while True:
+                                        # TODO Loop and have conversation somehow
+                                        # HOW DO I DO THIS!?!?!?!
+                                        pass
                     # If the suggested NPC is nearby then begin the talk
                     if dia:
                         text = dia.start_talk()
@@ -554,16 +569,18 @@ class MP_Game:
             printf('Exiting Server.')
             return
 
-        printf('Server Hosting successful!')
-        # Try to get the ip address, return '' if it couldn't be gotten
+        printf('Server Hosting successful!\n')
+
+        # Try to get the ip address, return None if it couldn't be retreived
         ip = get_ip()
-        if not ip:
+
+        if ip is None:
             # Tell the user that the IP Address couldn't be found
-            printf('IP Address Unobtainable! Please use ipconfig or ifconfig to find this computer\'s local IP address')
+            printf('IP Address Unobtainable! Please use ipconfig or ifconfig to find this computer\'s IPv4 address')
         else:
             # Print out the IP Address for clients to connect to
-            printf('IP Address of server is:', ip)
-        printf('Press Ctrl+C to exit at any time.')
+            printf('IP Address of server is: '+str(ip))
+        printf('Press Ctrl+C to exit at any time.\n')
         try:
             # Listen for connecting clients
             server.listen(5)
@@ -680,7 +697,6 @@ def get_ip():
 
     # 3: Use OS specific command
     import subprocess, platform
-    ipaddr=''
     os_str=platform.system().upper()
 
     if os_str=='LINUX' :
@@ -692,11 +708,14 @@ def get_ip():
         data = p.communicate()
         # Pull the output back in
         sdata = data[0].decode().split()
+        # print(sdata)
         try:
             # Find the IP Address if there
             ipaddr = sdata[ sdata.index('src')+1 ]
+            return ipaddr
+
         except:
-            return
+            return None
 
     elif os_str=='WINDOWS' :
 
@@ -715,7 +734,7 @@ def get_ip():
                 if sdata[0]=='Gateway' and sdata[1]=='Interface' :
                     ipaddr=sdata[6]
                     break
-    # Return any found IP Address
-    return ipaddr
+    # Return a None object if nothing was found
+    return None
 
 g = Game() if input("Launch Server or Singleplayer[MP/SP]: ") != 'MP' else MP_Game()

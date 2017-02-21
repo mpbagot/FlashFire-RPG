@@ -10,7 +10,8 @@ class Item:
         '''
         a = {}
         #Open the hidden items dictionary and get the attributes from it.
-        for line in open(".items.pydc"):
+        items = open('.items.pydc').read().split('\n')[1:]
+        for line in items:
             line = line.strip().split(',')
             if int(line[0]) == id:
                 a['name'] = line[1]

@@ -1,3 +1,4 @@
+Item-ID,ItemName,ItemType,HealthRestore,AttackDamage,Defense/Resistance
 0,Gold,money,0,0,0
 1,1-item,food,0,0,0
 2,2-item,food,0,0,0

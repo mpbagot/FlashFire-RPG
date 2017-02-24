@@ -55,18 +55,15 @@ class World:
         '''
         w = World(len(details)*10, len(details)*10, 0, 0, gen=False)
         y = x = len(details)
-        sys.stdout.write('[')
-        sys.stdout.flush()
+        num = 0
         for row in range(y):
             if row%3 == 0 and row != 0:
-                sys.stdout.write('#')
-                sys.stdout.flush()
+                num += 1
             for chunk in range(x):
                 #fill the given chunk with a generated chunk
                 w.chunk_array[row][chunk] = Chunk.get_by_string([row, chunk], eval(details[row][chunk]))
-
-        sys.stdout.write(']\n')
-        sys.stdout.flush()
+                print('[{}{}]'.format(num*'#', (33-num)*'-'), end='\r')
+        print()
         return w
 
     def get_save_string(self):
@@ -139,7 +136,7 @@ class World:
             typ = 'city'
         else:
             # If not a city then possibly add a city or just pick an area type
-            if random.randint(0, 49999) == 0:
+            if random.randint(0, 1) == 0:
                 typ = 'city'
             else:
                 typ = types[random.randint(0,2)]
@@ -147,12 +144,18 @@ class World:
         # spawn npc's randomly and populate this list.
         npc = []
         pos = (x, y)
-        if random.randint(0, 5)//dc[dif] > 0:
+        if typ != 'city' and random.randint(0, 5)//dc[dif] > 0:
             for a in range(random.randint(0, 4)):
                 npc.append(NPC(pos))
 
         # Return the generated Area_Node object
         return Area_Node(hasNorth, hasSouth, hasEast, hasWest, enemies, typ, npc)
+
+    def set_node(self, pos, **kwargs):
+        x,y = pos
+        for var in kwargs:
+            if var == 'store':
+                self.chunk_array[y//10][x//10].array[y%10][x%10].store = kwargs['store']
 
     def get_node(self, x, y):
         '''
@@ -193,7 +196,7 @@ class Chunk:
         '''
         Generate a string for saving the chunk
         '''
-        array = [[str(self.array[b][a]) for a in range(len(self.array))] for b in range(self.array[0])]
+        array = [[str(self.array[b][a]) for a in range(len(self.array[0]))] for b in range(len(self.array))]
         return str(array)
 
     def is_far_south(self):
@@ -227,6 +230,7 @@ class Area_Node:
         self.npc = npc
         self.hasNorth, self.hasSouth = (n,s)
         self.hasEast, self.hasWest = (e,w)
+        self.store = None
 
     def get_description(self):
         '''
@@ -246,7 +250,7 @@ class Area_Node:
             for a in d2:
                 if d2[a]:
                     # If the direction is travalable (?) then add the notification to the description string
-                    if string[-1] not in ('.', '\n'):
+                    if string and string[-1] not in ('.', '\n'):
                         string += ', another leads to the {}.'.format(a)
                         continue
                     string += '\nA passage leads to the {}'.format(a)

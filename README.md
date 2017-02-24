@@ -6,7 +6,7 @@ development of FlashFire RPG.
 # How To Play:
 
     For further documentation on gameplay, please visit
-	http://tick-it-media.tk:8888/flfrwiki
+	http://tick-it-media.tk:6657/flfrwiki
 
 # Features
  - Singleplayer:

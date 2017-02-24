@@ -69,8 +69,11 @@ class Inventory:
                 except IndexError:
                     # Or error if you dont have that item in the inventory
                     text = ('There\'s no Item with that Item Index.')
-                    print('error!!!')
                     continue
+                try:
+                    x = comm[2]
+                except IndexError:
+                    text = ('Invalid command options!')
 
             if comm[0] in ('show', 'list'):
                 # return the inventory string, just like with the show status command
@@ -128,6 +131,18 @@ class Inventory:
                     return hp_change
                 break
 
+    def add(self, name, quant):
+        item = Item.get(name)
+        item = int(item)
+        item = (item, quant)
+        for i, a in enumerate(self.contents):
+            if a[0] == item[0]:
+                new_item = list(a)
+                new_item[1] += quant
+                self.contents[i] = tuple(new_item)
+                return
+        self.contents.append(item)
+
     def generateContents(self, seed, give_gold):
         '''
         Randomly populate an Inventory.
@@ -165,6 +180,7 @@ class Player:
         self.name = name
         self.pos = pos
         self.in_conversation = False
+        self.is_hard = give_gold
         self.inventory = Inventory(seed, name, give_gold)
 
     def generateStats(self, seed):
@@ -173,7 +189,10 @@ class Player:
         '''
         stats = {}
         #Set random numbers and add them to a stats dictionary
-        stats['max_health'] = getRandomStat(seed, 2)
+        hp = getRandomStat(seed, 2)
+        while hp < 5:
+            hp = getRandomStat(seed, 2)
+        stats['max_health'] = hp
         stats['health'] = stats['max_health']
         stats['defense'] = getRandomStat(seed, 2)
         stats['attack'] = getRandomStat(seed, 2)
@@ -181,6 +200,22 @@ class Player:
         stats['speed'] = getRandomStat(seed, 2)
         stats['level'] = 1
         return stats
+
+    def has_correct_funds(self, cost):
+        for i in self.inventory.contents:
+            if i[0] == 0 and i[1] >= cost:
+                return True
+        return False
+
+    def remove_funds(self, cost):
+        for j, i in enumerate(self.inventory.contents):
+            if i[0] == 0:
+                if i[1] > cost:
+                    x = list(self.inventory.contents[j])
+                    x[1] -= cost
+                    self.inventory.contents[j] = x
+                else:
+                    del self.inventory.contents[j]
 
     def __str__(self):
         return '/ {} / HP: {} / Co-ords: {} /'.format(self.name, str(self.stats['health'])+'/'+str(self.stats['max_health']), self.pos)
@@ -325,35 +360,30 @@ class Dialogue:
                                             break
                         if val:
                             return val[0].upper() + val[1:]
-                return 'I don\'t know.'
-            # If the NLTK isn't installed then just have some preset responses.
-            else:
-                # lowercase the question to make checking easier
-                q = question.lower()
-                if q.startswith('what is your name'):
-                    # Tell the user the NPC's name
-                    return 'My name is {}, What\'s your\'s?'
-                elif q.startswith('how are you'):
-                    # Check if there's a problem
-                    if self.in_strife:
-                        # Tell the player about it
-                        return 'Actually, I need your help.'
-                    else:
-                        # or just tell them that it's all good.
-                        return 'I\'m fine, thank you.'
-                elif q.startswith('whats the problem'):
-                    # Check if we have a quest
-                    if self.in_strife:
-                        # Tell them the quest
-                        return 'AAAAHHH!'
-                    else:
-                        # Tell them there's no problem if there isn't one
-                        return 'What problem? There\'s nothing for me to worry about.'
-        else:
-            # Parse a question taking into account the given condition.
-            pass
+
+            # lowercase the question to make checking easier
+            q = question.lower()
+            if q.startswith('what is your name'):
+                # Tell the user the NPC's name
+                return 'My name is {}, What\'s your\'s?'
+            elif q.startswith('how are you'):
+                # Check if there's a problem
+                if self.in_strife:
+                    # Tell the player about it
+                    return 'Actually, I need your help.'
+                else:
+                    # or just tell them that it's all good.
+                    return 'I\'m fine, thank you.'
+            elif q.startswith('whats the problem'):
+                # Check if we have a quest
+                if self.in_strife:
+                    # Tell them the quest
+                    return 'AAAAHHH!'
+                else:
+                    # Tell them there's no problem if there isn't one
+                    return 'What problem? There\'s nothing for me to worry about.'
         # Act confused if the npc can't respond
-        return 'Nothing you are saying make\'s any sense!!!'
+        return 'I dont know.'
 
     def parse_statement(self, statement, condition=None):
         '''
@@ -444,3 +474,63 @@ class Topic:
     def __init__(self, name, fact):
         self.name = name
         self.stats = fact
+
+class Trade:
+    def __init__(self, player, node, p2=None):
+        self.player = player
+        self.area = node
+        if p2:
+            self.player2 = p2
+        self.is_mp = bool(p2)
+        self.store = node.store if node.store else Store(player.stats['level'])
+
+    def has_item(self, name):
+        for item in self.store.items:
+            i = Item(*item)
+            if i.attrs.get('name') == name:
+                return True
+        return False
+
+    def get_item_cost(self, name):
+        for item in self.store.items:
+            i = Item(*item)
+            if i.attrs.get('name') == name:
+                return i.cost
+        return 0
+
+    def run_trade(self, game, conn=None, id=None):
+        text = (str(self.store))
+        if conn:
+            p = game.players[id]
+            conn.send(text.encode())
+            response = conn.recv(4096).decode()
+        else:
+            p = game.player
+            response = input('>>> ').lower()
+
+        while response not in ('leave', 'exit'):
+            if response.startswith('show'):
+                text = (str(self.store))
+            elif response.startswith('buy'):
+                name = ' '.join(response.split()[1:])
+                if self.has_item(name):
+                    cost = self.get_item_cost(name)
+                    if p.has_correct_funds(cost):
+                        p.remove_funds(cost)
+                        p.inventory.add(name, 1)
+                        text = ('You purchased a {}'.format(name))
+
+                    elif self.has_item(name):
+                        text = ('You don\'t have enough Gold for that!')
+                else:
+                    text = ('We don\'t sell that here.')
+            if conn:
+                conn.send(text.encode())
+                response = conn.recv(4096).decode()
+            else:
+                printf(text)
+                response = input('>>> ').lower()
+        if conn:
+            game.players[id] = p
+            return
+        game.player = p

@@ -227,13 +227,17 @@ class Game:
                 result = conn.recv(65536).decode().split("|")
         elif comm == 'inventory':
             conn.send('inventory'.encode())
+            # Send the inventory command to the server
             conn.send(inputf('|-Inv Command-> ').encode())
+            # recieve and parse the result.
             result = conn.recv(1024).decode().split('|')
             while not result[-1] in ('exit', 'quit', 'done'):
+                # For as long as the client doesn't quit then repeat the above
                 printf(result[-1])
                 conn.send(inputf('|-Inv Command->').encode())
                 result = conn.recv(1024).decode().split('|')
             hp_change = int(result[0])
+            # add the hp change to the player.
             self.player.stats['health'] += hp_change
             if self.player.stats['health'] > self.player.stats['max_health']:
                 self.player.stats['health'] = self.player.stats['max_health']
@@ -273,9 +277,23 @@ class Game:
             printf('Status:\n{}\n\n{}'.format(str(self.player), str(self.player.inventory)))
 
         elif comm == 'inventory':
+            # Modify the player's health based on what they do in the inventory screen
             self.player.stats['health'] += self.player.inventory.modify()
             if self.player.stats['health'] > self.player.stats['max_health']:
+                # If the players health goes above the max, then lower it back down.
                 self.player.stats['health'] = self.player.stats['max_health']
+
+        elif comm == 'enter store':
+            if self.world.get_node(*self.player.pos).typ == "city":
+                # Create a trade dialogue object
+                trade = Trade(self.player, self.world.get_node(*self.player.pos))
+                # Add the store to the area
+                self.world.set_node(pos=self.player.pos, store=trade.store)
+                # And run the trade dialogue
+                trade.run_trade(self)
+                return
+            # Error if not in a city.
+            printf('There\'s no store here!')
 
         elif comm == 'save':
             # Create a new thread and save with that
@@ -389,7 +407,7 @@ class Game:
         return False
 
     @staticmethod
-    def run_dialogue(dial, over_lan=False):
+    def run_dialogue(dial):
         '''
         A static method to run a given dialogue object on a singleplayer world
         '''
@@ -449,6 +467,7 @@ class MP_Game:
         #generate an empty world
         self.world = World(1000, 1000, diff, 2)
         print()
+        # Create an empty players array
         self.players = []
         sleep(1.5)
 
@@ -494,11 +513,27 @@ class MP_Game:
             elif data.startswith('command'):
                 # Pull the command from the recieved message
                 comm = data.split('|')[-1]
-                # Reply with the correct response to the client
-                conn.send(self.run_command(comm, index).encode())
-                # Print that the player is leaving the game if they type exit
-                if comm == "exit":
-                    printf('Player {} has exited the game!'.format(p.name))
+
+                # Run a trader dialogue if you are trying to enter the store
+                if comm == 'enter store':
+                    if self.world.get_node(*p.pos).typ == "city":
+                        # If we are in a city then create a new Trade dialogue
+                        trade = Trade(p, self.world.get_node(*p.pos))
+                        # Add the store to the area
+                        self.world.set_node(pos=p.pos, store=trade.store)
+                        # and initiate the trading system
+                        trade.run_trade(self, conn, index)
+                        return
+                    # Error if your not in a city.
+                    printf('There\'s no store here!')
+
+                else:
+                    # Reply with the correct response to the client
+                    conn.send(self.run_command(comm, index).encode())
+                    # Print that the player is leaving the game if they type exit
+                    if comm == "exit":
+                        printf('Player {} has exited the game!'.format(p.name))
+
             elif data.startswith('inventory'):
                 self.players[index].inventory.modify(True, conn)
 
@@ -684,7 +719,6 @@ class MP_Game:
             text += '\nInvalid Command!'
         return text+'|0'
 
-##TODO in other file, make dialogue AI
 ##TODO in other file, make enemy AI
 
 def get_ip():

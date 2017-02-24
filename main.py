@@ -246,6 +246,15 @@ class Game:
         else:
             conn.send(("command|"+comm).encode())
             result = conn.recv(65536).decode().split("|")
+            if comm == "enter store":
+                if result[0] == "exit":
+                    printf('There\'s no store here!')
+                    return False
+                while result[0] != 'Exiting the store...':
+                    conn.send(input('>>> ').encode())
+                    result = conn.recv(4096).decode().split('|')
+                    printf(result[0])
+                return False
         if result[0] == 'disconnect':
             raise KeyboardInterrupt
         if result[0] == 'up':
@@ -523,9 +532,10 @@ class MP_Game:
                         self.world.set_node(pos=p.pos, store=trade.store)
                         # and initiate the trading system
                         trade.run_trade(self, conn, index)
-                        return
-                    # Error if your not in a city.
-                    printf('There\'s no store here!')
+                        conn.send('Exiting the store...'.encode())
+                    else:
+                        # Error if your not in a city.
+                        conn.send('exit'.encode())
 
                 else:
                     # Reply with the correct response to the client

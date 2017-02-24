@@ -502,10 +502,11 @@ class Trade:
         text = (str(self.store))
         if conn:
             p = game.players[id]
-            conn.send(text.encode())
+            conn.send((text+'|0').encode())
             response = conn.recv(4096).decode()
         else:
             p = game.player
+            printf(text)
             response = input('>>> ').lower()
 
         while response not in ('leave', 'exit'):
@@ -525,7 +526,7 @@ class Trade:
                 else:
                     text = ('We don\'t sell that here.')
             if conn:
-                conn.send(text.encode())
+                conn.send((text+'|0').encode())
                 response = conn.recv(4096).decode()
             else:
                 printf(text)

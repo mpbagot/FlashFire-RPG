@@ -32,8 +32,12 @@ class Item:
 
     @staticmethod
     def get(name):
+        '''
+        Get the Item ID for an Item with a given name
+        '''
         for a in open('.items.pydc').read().split('\n')[1:]:
-            if a.split(',')[1] == name:
+            # print(a.split(','))
+            if a and a.split(',')[1].lower() == name:
                 return a.split(',')[0]
         return None
 

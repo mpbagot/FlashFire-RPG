@@ -12,15 +12,14 @@ from time import *
 
 class Game:
     def __init__(self):
+        print()
         # import pygame
         # pygame.init()
         # pygame.mixer.music.load('music/main.mp3')
         # pygame.mixer.music.play()
-        print("=================")
-        print("||FlashFire RPG||")
-        print("=================")
-        print('')
-        play = input('Would you like to start a new game join a LAN server or load a previous save?[new/join/load] ')
+        # Print the title in a nice box.
+        print_title('FlashFire RPG')
+        play = input('Would you like to start a new game, join a LAN server\nor load a previous save?[new/join/load] ')
         self.id = 0
         if play == "load":
             self.load(input('Save Game Filename: '))
@@ -731,7 +730,20 @@ class MP_Game:
 
 ##TODO in other file, make enemy AI
 
+def print_title(string):
+    '''
+    Print the title you input in a nice box.
+    '''
+    print('='*80)
+    blank = (70-len(string))//2
+    print('||{}{}{}||'.format(blank*' '+'.::', string, '::.'+(blank+len(string)%2)*' '))
+    print('='*80)
+    print()
+
 def get_ip():
+    '''
+    Try to the the Local IPv4 Address of this computer
+    '''
     import socket
     # 1: Use the gethostname method
     ipaddr = socket.gethostbyname(socket.gethostname())

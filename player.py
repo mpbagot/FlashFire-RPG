@@ -6,7 +6,6 @@ try:
     import nltk
     has_nltk = True
 except:
-    pass
     has_nltk = False
 
 def genSeed(text):
@@ -51,14 +50,21 @@ class Inventory:
         self.player = name
 
     def modify(self, over_lan=False, conn=None):
+        '''
+        Run an inventory interface screen
+        '''
+        # Initialise the empty variables
         text = ''
         hp_change = 0
         while True:
-
+            # If playing singleplayer
             if not over_lan:
+                # Do standard print and input
                 printf(text)
                 comm = inputf('|-Inv Command-> ').split()
+            # If playing on a server
             else:
+                # Send and recieve from the client
                 conn.send(text.encode())
                 comm = conn.recv(1024).decode().split()
 
@@ -70,10 +76,16 @@ class Inventory:
                     # Or error if you dont have that item in the inventory
                     text = ('There\'s no Item with that Item Index.')
                     continue
-                try:
-                    x = comm[2]
-                except IndexError:
-                    text = ('Invalid command options!')
+                except ValueError:
+                    # Catch if the item name was used instead of the item's index
+                    text = 'That\'s not an Index number! Please use the Item\'s index, not name.'
+                    continue
+                if comm[0] in ('drop','equip'):
+                    try:
+                        x = comm[2]
+                    except IndexError:
+                        text = ('Invalid command options!')
+                        continue
 
             if comm[0] in ('show', 'list'):
                 # return the inventory string, just like with the show status command
@@ -94,15 +106,23 @@ class Inventory:
                     continue
                 # If everything is all sweet then equip the item
                 else:
+                    # Print out a nice message to the user
+                    if spot == "armour":
+                        text = "Equipped {} as armour.".format(item.attrs.get('name'))
+                    else:
+                        text = 'Equipped {} in {} hand.'.format(item.attrs.get('name'), spot)
                     self.equipped[spot] = item
 
             elif comm[0] == 'drop':
                 quant = int(comm[2])
                 # Drop the given quantity if you have enough in your inventory
                 if self.contents[int(comm[1])-1][1] > quant:
+                    # Print a nice message
                     text = ('Dropping {} {}'.format(quant, item.attrs['name']))
+                    # create a list from the itemstack tuple
                     x = list(self.contents[int(comm[1])-1])
                     x[1] -= quant
+                    # Iterate the quantity and re-set the tuple
                     self.contents[int(comm[1])-1] = tuple(x)
                 else:
                     # Drop the whole stack if the quantity is too great
@@ -111,36 +131,57 @@ class Inventory:
 
             elif comm[0] == 'eat':
                 if item.type == 'food':
+                    # Always eat 1 of any food
+                    quant = 1
                     # Eat the food, reducing the stack quantity
                     if self.contents[int(comm[1])-1][1] > 1:
                         x = list(self.contents[int(comm[1])-1])
                         x[1] -= quant
                         self.contents[int(comm[1])-1] = tuple(x)
+                    # or if it's the last bit of food in the stack, then just delete the stack
                     else:
                         del self.contents[int(comm[1])-1]
-                    # TODO Add and stabilise the players health
+                    # Add the players health
                     hp_change += item.attrs['h_restore']
+                    n = item.attrs.get('name')
+                    # Print a nice helpful message
+                    text = 'You eat a{} {}'.format('n' if n[0] in 'AEIOU' else '', n)
                 else:
                     # Error if it's not food
                     text = ('You can\'t eat that!')
             # Quit the inventory modification menu
             elif comm[0] in ('done', 'exit', 'quit'):
                 if over_lan:
+                    # Send the hp change to the client
                     conn.send('{}|exit'.format(hp_change).encode())
                 else:
+                    # otherwise just return the hp change
                     return hp_change
                 break
+            # Error message if it's an invalid command
+            else:
+                text = 'Invalid Command!'
 
     def add(self, name, quant):
+        '''
+        Add the given item at the given quantity to the inventory
+        '''
+        # Get the item id based on name
         item = Item.get(name)
+        if item == None:
+            return
+        # convert the string item id to an int
         item = int(item)
+        # Create an item stack tuple, i.e (item_id, quantity)
         item = (item, quant)
         for i, a in enumerate(self.contents):
+            # Loop through the contents to see if the quantity can be added to a preexisting stack
             if a[0] == item[0]:
                 new_item = list(a)
                 new_item[1] += quant
                 self.contents[i] = tuple(new_item)
                 return
+        # Otherwise append the stack to the contents
         self.contents.append(item)
 
     def generateContents(self, seed, give_gold):
@@ -202,19 +243,32 @@ class Player:
         return stats
 
     def has_correct_funds(self, cost):
+        '''
+        Check if the player has a quantity of Gold more than
+        or equal to the given cost.
+        '''
         for i in self.inventory.contents:
             if i[0] == 0 and i[1] >= cost:
                 return True
         return False
 
     def remove_funds(self, cost):
+        '''
+        Remove a given value of Gold equal to the given cost.
+        '''
+        # Iterate the itemstacks
         for j, i in enumerate(self.inventory.contents):
             if i[0] == 0:
+                # if the stack contains Gold and has
+                # a greater quantity than the cost
                 if i[1] > cost:
                     x = list(self.inventory.contents[j])
                     x[1] -= cost
+                    # De-iterate the quantity and re-set the itemstack
                     self.inventory.contents[j] = x
                 else:
+                    # Since the has_correct_funds() is always run first,
+                    # we can just del the itemstack if quantity is equal to cost.
                     del self.inventory.contents[j]
 
     def __str__(self):
@@ -333,11 +387,14 @@ class Dialogue:
                 needed_value = ''
                 # Iterate and fill in the topic and value tags
                 for tag in tags:
+                    # If the tag for the word is a pronoun
                     if tag[1] in ('PRP', 'PRP$', 'NNP'):
                         topic += ' {}'.format(tag[0])
+                    # or if the word is an adjective
                     elif tag[1] in ('NN', 'JJ'):
                         up_word = tag[0][0].upper()+tag[0][1:]
                         g = nltk.pos_tag(nltk.word_tokenize(up_word))[0][1] == 'NNP'
+                        # If the word is titlecase then add it to the topic phrase
                         if tag[0][0].isupper() or (tag[1] == 'NN' and topic == '') or (tag[1] == 'JJ' and g):
                             topic += ' {}'.format(tag[0])
                             continue
@@ -351,6 +408,7 @@ class Dialogue:
                         x = obj.stats.get(needed_value)
                         val = '' if not x else x
                         if not val:
+                            # iterate through synonyms and answer the same way
                             for synset in nltk.corpus.wordnet.synsets(needed_value):
                                 for lemma in synset.hyponyms():
                                     for word in lemma.lemma_names():
@@ -377,7 +435,7 @@ class Dialogue:
             elif q.startswith('whats the problem'):
                 # Check if we have a quest
                 if self.in_strife:
-                    # Tell them the quest
+                    # TODO Tell them the quest
                     return 'AAAAHHH!'
                 else:
                     # Tell them there's no problem if there isn't one
@@ -487,14 +545,14 @@ class Trade:
     def has_item(self, name):
         for item in self.store.items:
             i = Item(*item)
-            if i.attrs.get('name') == name:
+            if i.attrs.get('name').lower() == name:
                 return True
         return False
 
     def get_item_cost(self, name):
         for item in self.store.items:
             i = Item(*item)
-            if i.attrs.get('name') == name:
+            if i.attrs.get('name').lower() == name:
                 return i.cost
         return 0
 
@@ -519,12 +577,15 @@ class Trade:
                     if p.has_correct_funds(cost):
                         p.remove_funds(cost)
                         p.inventory.add(name, 1)
-                        text = ('You purchased a {}'.format(name))
+                        text = ('You purchased a{} {}'.format('n' if name[0] in 'aeiou' else '', name))
 
                     elif self.has_item(name):
                         text = ('You don\'t have enough Gold for that!')
                 else:
                     text = ('We don\'t sell that here.')
+            else:
+                text = 'Storekeeper: Huh?'
+
             if conn:
                 conn.send((text+'|0').encode())
                 response = conn.recv(4096).decode()
@@ -532,6 +593,8 @@ class Trade:
                 printf(text)
                 response = input('>>> ').lower()
         if conn:
+            conn.send(('Storekeeper: Come again!|0').encode())
             game.players[id] = p
             return
+        printf('Storekeeper: Come again!')
         game.player = p

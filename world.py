@@ -44,6 +44,7 @@ class World:
                 # And populate it with Chunks
                 if self.chunk_array[j][i] == 0:
                     self.chunk_array[j][i] = self.make_chunk(j, i, difficulty, lod)
+                    # print('Generating incomplete chunk...')
         if show_bar:
             sys.stdout.write(']\n')
             sys.stdout.flush()
@@ -53,17 +54,21 @@ class World:
         '''
         Load the world array from a saved file
         '''
-        w = World(len(details)*10, len(details)*10, 0, 0, gen=False)
-        y = x = len(details)
+        w = World(len(details)*10, len(details[0])*10, 0, 0, gen=False)
+        y = len(details)
+        x = len(details[0])
         num = 0
         for row in range(y):
             if row%3 == 0 and row != 0:
                 num += 1
             for chunk in range(x):
                 #fill the given chunk with a generated chunk
-                w.chunk_array[row][chunk] = Chunk.get_by_string([row, chunk], eval(details[row][chunk]))
+                w.chunk_array[row][chunk] = Chunk.get_by_string([row, chunk], eval(details[row][chunk]), w)
                 print('[{}{}]'.format(num*'#', (33-num)*'-'), end='\r')
         print()
+        t = Thread(target=w.generate_world, args=(x, y, 'medium', 2))
+        t.daemon = True
+        t.start()
         return w
 
     def get_save_string(self):
@@ -136,7 +141,7 @@ class World:
             typ = 'city'
         else:
             # If not a city then possibly add a city or just pick an area type
-            if random.randint(0, 1) == 0:
+            if random.randint(0, 1000) == 0:
                 typ = 'city'
             else:
                 typ = types[random.randint(0,2)]
@@ -181,15 +186,19 @@ class Chunk:
         return self.array[y][x]
 
     @staticmethod
-    def get_by_string(pos, details):
+    def get_by_string(pos, details, w):
         '''
         Get a chunk object from a save string
         '''
         chunk = Chunk(pos)
-        for i, row in enumerate(details):
-            for j, node in enumerate(row):
-                # Add a loaded node to the array
-                chunk.array[i][j] = Area_Node.get_by_string(node)
+        if details != 0:
+            for i, row in enumerate(details):
+                for j, node in enumerate(row):
+                    # Add a loaded node to the array
+                    chunk.array[i][j] = Area_Node.get_by_string(node)
+        else:
+            chunk = 0
+        #     chunk = w.make_chunk(*chunk.pos, 'medium', 2)
         return chunk
 
     def __str__(self):
@@ -245,11 +254,11 @@ class Area_Node:
         d2 = {'North':self.hasNorth, 'South':self.hasSouth, 'East':self.hasEast, 'West':self.hasWest}
         # Get the passage description based on the movable directions
         if all([d2[a] for a in d2]):
-            string += 'There are passage\'s in all directions.'
+            string += '\nThere are passage\'s in all directions.'
         else:
             for a in d2:
                 if d2[a]:
-                    # If the direction is travalable (?) then add the notification to the description string
+                    # If the direction is travelable (?) then add the notification to the description string
                     if string and string[-1] not in ('.', '\n'):
                         string += ', another leads to the {}.'.format(a)
                         continue
@@ -305,3 +314,7 @@ class Area_Node:
         typ = string[1]
         npc = [NPC.get_by_string(a) for a in eval(string[2])]
         return Area_Node(n, s, e, w, enemies, typ, npc)
+
+class Null_Node(Area_Node):
+    def __init__(self):
+        super().__init__(False,False,False,False,[],'Hills',[])

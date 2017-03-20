@@ -177,8 +177,11 @@ class Inventory:
         for i, a in enumerate(self.contents):
             # Loop through the contents to see if the quantity can be added to a preexisting stack
             if a[0] == item[0]:
+                # Unpack the tuple into a list (for mutability)
                 new_item = list(a)
+                # Iterate the quantity
                 new_item[1] += quant
+                # Repack into a tuple and set back into the inventory.
                 self.contents[i] = tuple(new_item)
                 return
         # Otherwise append the stack to the contents
@@ -190,10 +193,14 @@ class Inventory:
         '''
         conts = []
         for a in range(getRandomStat(seed)):
+            # Get a random number (item_id) for the item
             item_id = getRandomStat(seed, 2)
+            # Add 1 of that item to the inventory
             conts.append((item_id, 1))
         if give_gold:
+            # If not playing on hard, then give 30 starting gold
             conts.append((0, 30))
+        # Sort all the items by item_id for simplicity
         conts.sort()
         return conts
 
@@ -218,6 +225,7 @@ class Player:
     def __init__(self, seed, name, pos, give_gold=True):
         self._seed = seed
         self.stats = self.generateStats(seed)
+        self.xp = 0
         self.name = name
         self.pos = pos
         self.in_conversation = False
@@ -278,7 +286,7 @@ class Player:
         '''
         Generate the string of data for saving the game
         '''
-        return '{}|{}|{}|{}'.format(self._seed, self.name, str(self.pos), str(self.stats))
+        return '{}|{}|{}|{}|{}'.format(self._seed, self.name, str(self.pos), str(self.stats), self.xp)
 
     @staticmethod
     def get_by_string(string):
@@ -289,6 +297,7 @@ class Player:
         # Initialise a new Player object
         p = Player(line[0], line[1], eval(line[2]))
         p.stats = eval(line[3])
+        p.xp = int(line[4])
         # Set the stats and return
         return p
 
@@ -316,8 +325,10 @@ class Dialogue:
         text = 'What you just said makes no sense.'
         # Add the user-spoken line to the line log
         self.line_log.append(res)
-
-        if self.is_question(res):
+        x = self.is_question(res)
+        if x is None:
+            text = '...'
+        if x:
             # This is true if res is just a question
             text = self.parse_question(res)
         else:
@@ -327,7 +338,7 @@ class Dialogue:
                 # Starts with a conditional statement, parse the question relative to it
                 condition = res.split(',')[0].strip()
                 station = res.split(',')[1].strip()
-                print(station)
+                # print(station)
                 # Check if station is a statement or question
                 if not self.is_question(station):
                     text = self.parse_statement(station, condition)
@@ -338,7 +349,7 @@ class Dialogue:
                 # The sentence is just a plain statement
                 text = self.parse_statement(res)
 
-        if res == "Goodbye":
+        if res.lower() == "goodbye":
             self.is_finished = self._meh
             text = 'Goodbye.'
         return '{}: {}'.format(self.g_name, text)
@@ -355,7 +366,9 @@ class Dialogue:
         Determine if the input statement is a question or statement
         '''
         words = re.findall(r'\w+', res)
-        if words[0] in ('who', 'would', 'am', 'what', 'when', 'where', 'why', 'how', 'are', 'is', 'isn\'t', 'isnt', 'does', 'do', 'did', 'will'):
+        if words == []:
+            return None
+        if words[0].lower() in ('who', 'would', 'am', 'what', 'whats' 'when', 'where', 'why', 'how', 'are', 'is', 'isn\'t', 'isnt', 'does', 'do', 'did', 'will'):
             if words[0] == 'will':
                 # If this is true then it'S a valid 'will something' question
                 return (words[1] in ('you', 'i', 'it', 'they', 'those', 'the', 'that', 'he', 'she') or (words[0][0].isupper() and words[0][1:].islower()))
@@ -423,15 +436,22 @@ class Dialogue:
             q = question.lower()
             if q.startswith('what is your name'):
                 # Tell the user the NPC's name
-                return 'My name is {}, What\'s your\'s?'
+                return 'My name is {}, What\'s your\'s?'.format()
             elif q.startswith('how are you'):
                 # Check if there's a problem
                 if self.in_strife:
                     # Tell the player about it
-                    return 'Actually, I need your help.'
+                    return 'I need your help.'
                 else:
                     # or just tell them that it's all good.
                     return 'I\'m fine, thank you.'
+            elif q.startswith('are you ok'):
+                # Check if there's a problem
+                if self.in_strife:
+                    # tell the player about it
+                    return 'No, I need your help!'
+                # or just tell them that it's all good
+                return 'Yes, I\'m fine thank you'
             elif q.startswith('whats the problem'):
                 # Check if we have a quest
                 if self.in_strife:
@@ -479,7 +499,7 @@ class Dialogue:
                 topic = topic.strip()
                 stat = stat.strip()
 
-                print('Topic is {}, Needed Value is {}'.format(topic, stat))
+                # print('Topic is {}, Needed Value is {}'.format(topic, stat))
                 statement = [a if a != 'i' else 'you' for a in statement.lower().split()]
                 statement = ' '.join(statement)
                 obj = Topic(topic.lower(), {stat:statement})
@@ -543,6 +563,9 @@ class Trade:
         self.store = node.store if node.store else Store(player.stats['level'])
 
     def has_item(self, name):
+        '''
+        return if the store has a given item
+        '''
         for item in self.store.items:
             i = Item(*item)
             if i.attrs.get('name').lower() == name:
@@ -550,6 +573,9 @@ class Trade:
         return False
 
     def get_item_cost(self, name):
+        '''
+        Return the cost of an item with a given name
+        '''
         for item in self.store.items:
             i = Item(*item)
             if i.attrs.get('name').lower() == name:
@@ -557,44 +583,66 @@ class Trade:
         return 0
 
     def run_trade(self, game, conn=None, id=None):
+        '''
+        Loop and run the trade routine
+        '''
         text = (str(self.store))
         if conn:
+            # If playing as a client
             p = game.players[id]
             conn.send((text+'|0').encode())
             response = conn.recv(4096).decode()
         else:
+            # If playing singleplayer
             p = game.player
             printf(text)
             response = input('>>> ').lower()
 
         while response not in ('leave', 'exit'):
+            # While the player doesn't type leave or exit keep handling commands
             if response.startswith('show'):
+                # Display the stores contents
                 text = (str(self.store))
+            # Purchase an item from the store
             elif response.startswith('buy'):
                 name = ' '.join(response.split()[1:])
+                # Check if the store has the item in stock
                 if self.has_item(name):
                     cost = self.get_item_cost(name)
+                    # Get the cost and check if the player is rich enough
                     if p.has_correct_funds(cost):
+                        # Remove the Gold and add the chosen item
                         p.remove_funds(cost)
                         p.inventory.add(name, 1)
+                        # Print a confirmation message
                         text = ('You purchased a{} {}'.format('n' if name[0] in 'aeiou' else '', name))
 
                     elif self.has_item(name):
+                        # If the store has the item but the player doesn't have enough gold
                         text = ('You don\'t have enough Gold for that!')
                 else:
+                    # Or if the store doesn't have the item
                     text = ('We don\'t sell that here.')
             else:
+                # Have the storekeeper be confused otherwise
                 text = 'Storekeeper: Huh?'
 
             if conn:
+                # send the text to be printed to the client
                 conn.send((text+'|0').encode())
+                # Get the client's response
                 response = conn.recv(4096).decode()
             else:
+                # Just print and get a normal input if playing Singleplayer
                 printf(text)
                 response = input('>>> ').lower()
         if conn:
+            # Transmit a goodbye statement to the client
             conn.send(('Storekeeper: Come again!|0').encode())
+            # Update the specific player object
             game.players[id] = p
             return
+        # print the goodbye statement
         printf('Storekeeper: Come again!')
+        # Update the singleplayer player
         game.player = p

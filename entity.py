@@ -1,6 +1,7 @@
 import random
 from player import Player
 from effects import *
+from items import Item
 
 class Enemy:
     def __init__(self, dif_ml, pos):
@@ -68,6 +69,7 @@ class Combat:
         e.hp *= ((p.stats['level']//10)+1)
         e.attack *= ((p.stats['level']//8)+1)
         self.enemy = e
+        self.init_enem_hp = self.enemy.hp
 
     def run(self, conn=None):
         '''
@@ -114,7 +116,8 @@ class Combat:
                 elif not noticed:
                     if random.randint(0, 50) == 27:
                         # If you get a 2% chance then you suprise attack inst-kill the enemy
-                        conn.send(('Your surprise attack strikes the {}\'s weak spot.').encode())
+                        if conn:
+                            conn.send(('Your surprise attack strikes the {}\'s weak spot.').encode())
                         enem_dead = True
                     elif random.randint(0, 20) == 7:
                         # Or if you get an unlucky 5% chance then the enemy dodges the attack
@@ -126,11 +129,40 @@ class Combat:
                 else:
                     text = "You strike at the {}, but it moves too quickly and you miss.".format(self.enemy.name)
             elif comm == "2":
+                if conn:
+                    # If over lan then send an alert back to the client
+                    conn.send('alert|{}'.format(self.player.inventory.get_combat()).encode())
+                    item = int(conn.recv(3).decode())-1
+                    # Pull back the item id and grab the item tuple
+                    item = self.player.inventory.get_combat().contents[item]
+                else:
+                    print(self.player.inventory.get_combat())
+                    item = input('Choose an Item: ')
+                    while not item.isnumeric() and item >= len(self.player.inventory.get_combat()):
+                        item = input('Invalid Item ID!\nChoose an Item: ')
+                    item = self.player.inventory.get_combat().contents[int(item)-1]
+                # Get the item object for all operations below
+                item = Item(*item)
+                # Create the response message
+                text = "You use a{} {}!".format('n' if item.attrs['name'][0].lower() in 'aeiou' else '', item.attrs['name'])
 
-                pass
+                if item.attrs.get('h_restore') > 0:
+                    # If the item restores health
+                    self.player.stats['health'] += item.attrs.get('h_restore')
+                    # Add a helpful message
+                    text += '\nYou gain {} HP!'.format(item.attrs.get('h_restore'))
+                    if self.player.stats.get('health') > self.player.stats.get('max_health'):
+                        # Add the health restoration for the item and round down to max health if it overflows
+                        self.player.stats['health'] = self.player.stats.get('max_health')
+                if item.attrs.get('damage') > 0:
+                    # If the item is meant to do damage
+                    self.enemy.hp -= item.attrs.get('damage')
+                    # Add a helpful message
+                    text += '\nThe {} loses {} HP!'.format(self.enemy.name, item.attrs.get('damage'))
+
             elif comm == "3":
                 # if you get really lucky then you can run
-                if random.randint(0, abs(int(10-self.player.stats['level']/10))) == 0:
+                if random.randint(0, abs(int(10-self.player.stats['level']/10))) == 0 or not noticed:
                     if conn:
                         # If on a server, send a message to the client and exit
                         conn.send(('run|'+self.enemy.name).encode())
@@ -138,7 +170,7 @@ class Combat:
                     else:
                         # If on singleplayer just print a notice and exit
                         printf('You flee from battle. The {} does not follow.'.format(self.enemy.name))
-                        return
+                        return ('run',self.enemy.name)
                 text = "The {} blocks your way out!".format(self.enemy.name)
             else:
                 text = 'Invalid Option!'
@@ -157,7 +189,7 @@ class Combat:
                     return (self.player, random.randint(1, 7)*self.player.stats['level'],random.randint(1, 3))
                 else:
                     printf('You killed the {}!'.format(self.enemy.name))
-                    return ('win', self.player)
+                    return ('win', self.player, random.randint(1, 7)*self.player.stats['level'],random.randint(1, 3))
 
             # Let the enemy attack you
             if noticed and comm in ('1','2','3'):
@@ -166,13 +198,23 @@ class Combat:
                     dam_res = armour.attrs['damage_resist']
                 else:
                     dam_res = 0
+
                 hp_loss = random.randint(2, int(self.enemy.attack))-dam_res if random.randint(0, 10) != 0 else 0
-                self.player.stats['health'] -= hp_loss
-                text += '\nThe {} hits you for {} damage!'.format(self.enemy.name, hp_loss)
+                # Jokingly nullify damage if you are insanely overpowered
+                if hp_loss < 0:
+                    text += '\nThe {} hits you, but your armour nullifies the damage!'.format(self.enemy.name)
+                else:
+                    # If the hp loss is positive though, you still have to take it.
+                    self.player.stats['health'] -= hp_loss
+                    text += '\nThe {} hits you for {} damage!'.format(self.enemy.name, hp_loss)
+
+            if self.enemy.hp <= self.init_enem_hp*0.3:
+                # If the enemy is at or below 30% health then tell the user that
+                text += '\nThe {} seems to be getting weaker.'.format(self.enemy.name)
 
             noticed = True
 
             if conn:
                 conn.send(('text|'+str(self.enemy.hp)+text+'\n\n(1) Attack\n(2) Items\n(3) Run\n').encode())
             else:
-                printf(text)
+                printf(text+'\n\n(1) Attack\n(2) Items\n(3) Run\n')

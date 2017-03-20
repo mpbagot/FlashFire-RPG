@@ -1,5 +1,10 @@
 import sys
 from time import *
+import pygame
+
+pygame.init()
+
+sfx = pygame.mixer.Channel(0)
 
 def printf(text, nline=True):
   '''
@@ -8,7 +13,7 @@ def printf(text, nline=True):
   for char in text:
     sys.stdout.write(char)
     sys.stdout.flush()
-    sleep(0.03)
+    sleep(0.015)
   if nline:
     sys.stdout.write('\n')
 
@@ -18,6 +23,18 @@ def inputf(text):
   '''
   printf(text, False)
   return input('')
+
+def play_sound(sname):
+    '''
+    Play the sound on the SFX channel with the given name
+    '''
+    pass
+
+def play_music(mname):
+    '''
+    Play background music with the given name
+    '''
+    pass
 
 def log(text):
     '''

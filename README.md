@@ -26,7 +26,7 @@ development of FlashFire RPG.
     be played on pre-existing singleplayer worlds or on freshly
     generated worlds. Server games cannot be saved.
 
-	- All the features of Singleplayer!
+	- All the features of Singleplayer! (except saving!)
 	- PVP matches
 	- Co-op battling and chat
 	- Inter-player trade

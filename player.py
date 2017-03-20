@@ -45,7 +45,8 @@ def isnum(n):
 
 class Inventory:
     def __init__(self, seed, name, give_gold):
-        self.contents = self.generateContents(seed, give_gold)
+        self.contents = []
+        self.generateContents(seed, give_gold)
         self.equipped = {'left':None, 'right':None, 'armour':None}
         self.player = name
 
@@ -97,11 +98,12 @@ class Inventory:
                 if spot not in ('armour', 'left', 'right'):
                     text = ('Invalid Equipment Spot!')
                     continue
+
                 # Check that all item types are valid
                 elif spot == 'armour' and item.type != 'clothes':
                     text = ('You can\'t wear that!')
                     continue
-                elif item.type not in ('weapon', 'shield', 'spell'):
+                elif item.type not in ('weapon', 'shield', 'spell', 'clothes'):
                     text = ('You can\'t equip that!')
                     continue
                 # If everything is all sweet then equip the item
@@ -187,22 +189,33 @@ class Inventory:
         # Otherwise append the stack to the contents
         self.contents.append(item)
 
+    def get_combat(self):
+        contents = []
+        for a in self.contents:
+            if Item(*a).attrs['type'] in ('food','spell'):
+                contents.append(a)
+        inv = Inventory('1'*64, self.player, False)
+        inv.equipped = self.equipped
+        inv.contents = contents
+        return inv
+
     def generateContents(self, seed, give_gold):
         '''
         Randomly populate an Inventory.
         '''
-        conts = []
         for a in range(getRandomStat(seed)):
             # Get a random number (item_id) for the item
             item_id = getRandomStat(seed, 2)
             # Add 1 of that item to the inventory
-            conts.append((item_id, 1))
+            # conts.append((item_id, 1))
+            item = Item(item_id, 1)
+            self.add(item.attrs['name'].lower(), 1)
+        self.add('daemon scythe',1)
         if give_gold:
             # If not playing on hard, then give 30 starting gold
-            conts.append((0, 30))
+            self.contents.append((0, 30))
         # Sort all the items by item_id for simplicity
-        conts.sort()
-        return conts
+        self.contents.sort()
 
     def __str__(self):
         '''

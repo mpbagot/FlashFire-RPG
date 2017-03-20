@@ -246,6 +246,12 @@ class Game:
                     # While the server hasnt replied dead, win or run
                     if result.startswith('text'):
                         printf(result.split('|')[1])
+                    if result.startswith('alert'):
+                        printf(result.split('|')[1])
+                        item = input('Choose an Item: ')
+                        while not item.isnumeric() and item >= len(p.inventory.get_combat()):
+                            item = input('Invalid Item ID!\nChoose an Item: ')
+                        conn.sendall(str(item))
                     action = ''
                     while not action:
                         # Grab the action command from the player
@@ -263,7 +269,7 @@ class Game:
                     g *= self.player.stats['level']
                     # Add the gained experience and gold
                     self.player.xp += xp
-                    self.player.inventory.add('Gold', g)
+                    self.player.inventory.add('gold', g)
                     # Tell the player about it
                     printf('You found {} Gold!'.format(g))
                     printf('You gained {} XP!'.format(xp))
@@ -496,6 +502,73 @@ exit - Return to the game.'''
                 # If no dialogue was started then print an appropriate error
                 printf('There\'s no-one here named that!' if name != "Person" else 'There\'s no-one here!')
 
+        elif comm.startswith('fight'):
+            en = comm.split()[-1]
+
+            node = self.world.get_node(self.player.pos[0], self.player.pos[1])
+            en_len = len(node.enemies)
+            enemy = False
+            if en == "enemy":
+                # the player is asking to fight a random entity
+                if en_len > 0:
+                    e = random.randint(0, en_len-1)
+                    enemy = node.enemies[e]
+                else:
+                    # Return an error message if there are no enemies nearby
+                    printf('There are no enemies nearby!')
+                    return False
+            else:
+                # The player is asking to fight a named entity
+                for a in node.enemies:
+                    # Iterate through all enemies and check if any have the right name
+                    if a.name == en:
+                        e = node.enemies.index(a)
+                        enemy = a
+                if not enemy:
+                    # Return an error message if there is no enemy with given name
+                    printf('There is no enemy with that name!')
+                    return False
+            combat = Combat(self.player, enemy)
+            init_hp = self.player.stats['health']
+            gxp = combat.run()
+            combat = None
+
+            if gxp[0] == 'run':
+                # If the player runs away
+                return False
+
+            if gxp == "dead":
+                # Basically tell the player they died and restart the game
+                # Because perma-death
+                print('You have died!!!')
+                sleep(3)
+                # Wait 3 seconds, clear the screen and reset the game.
+                # TODO fix the bug where restarting 1000 times without exiting will crash the game
+                print('\n'*50)
+                g = Game()
+                sys.exit()
+                return False
+
+            # Modify the player variable due to changes during battle
+            self.player = gxp[1]
+            # Add one to the XP gained because of some glitch
+            gxp = list(gxp)
+            gxp[2] += 1
+
+            # add the xp to the player
+            printf('You gained {} XP!'.format(gxp[3]))
+            printf('You found {} Gold!'.format(gxp[2]*self.player.stats['level']))
+            self.player.xp += gxp[3]
+
+            # Adjust level as neccessary
+            self.player.stats['level'] = int(5**(len(str(self.player.xp))-2))
+
+            # Add gold to the player's inventory
+            self.player.inventory.add('gold', gxp[2]*self.player.stats['level'])
+
+            x,y = self.player.pos
+            # AND finally, remove the enemy that we just killed
+            del self.world.chunk_array[y//10][x//10].array[y%10][x%10].enemies[e]
 
         elif comm.startswith('go'):
             # find the chosen direction
@@ -704,6 +777,7 @@ class MP_Game:
                 hp_change = p.stats['health']-init_hp
                 # Unpack the tuple, append the hp change, then repack
                 gxp = list(gxp)
+                gxp[1] += 1
                 gxp.append(hp_change)
                 gxp = tuple(gxp)
                 # Send the tuple as a string to the client
@@ -719,7 +793,7 @@ class MP_Game:
                 p.stats['level'] = int(5**(len(str(p.xp))-2))
 
                 # Add gold to the player's inventory
-                p.inventory.add('Gold', gxp[1]*p.stats['level'])
+                p.inventory.add('gold', gxp[1]*p.stats['level'])
 
                 x,y = p.pos
                 # AND finally, remove the enemy that we just killed

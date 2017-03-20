@@ -8,17 +8,17 @@ import threading
 from effects import *
 from player import *
 from world import *
+import math
 from time import *
 
 class Game:
-    def __init__(self):
+    def __init__(self,title="Flashfire RPG"):
         print()
         # import pygame
         # pygame.init()
-        # pygame.mixer.music.load('music/main.mp3')
-        # pygame.mixer.music.play()
+        # play_music('title_music')
         # Print the title in a nice box.
-        print_title('FlashFire RPG')
+        print_title(title)
         play = input('Would you like to start a new game, join a LAN server\nor load a previous save?[new/join/load] ')
         self.id = 0
         if play == "load":
@@ -169,7 +169,13 @@ class Game:
                 comm = input('Command >>> ')
 
                 if adr:
-                    # send commands to server instead
+                    # if the command doesn't require and server-client
+                    # interaction, i.e the help command, then just run it client-side
+                    if comm.lower() == 'help':
+                        x = self.run_command('help')
+                        continue
+
+                    # otherwise send commands to server instead
                     x = self.run_lan_com(comm, conn)
 
                 else:
@@ -209,21 +215,75 @@ class Game:
         with open('save_default.sv', 'w') as f:
             # Write the plain-text to a file
             f.write('\n'.join(towrite))
+        printf("Save Complete!")
 
     def run_lan_com(self, comm, conn):
         '''
         Transmit a command to a server and recieve result
         '''
-
         if comm.startswith('talk to '):
             # Start a dialogue scenario on the server
             conn.send(('talk|begin_conv_'+comm.split()[-1]).encode())
             result = conn.recv(65536).decode().split("|")
             # Loop the conversation back and forth and print, here on the client-side
-            while result[-2].split()[-1] not in ('Goodbye.', 'Farewell!'):
+            while result[-2].split()[-1].lower() not in ('goodbye', 'farewell'):
                 printf(result[-2])
                 conn.send(('talk|'+input(self.player.name+': ')).encode())
                 result = conn.recv(65536).decode().split("|")
+
+        elif comm.startswith('fight'):
+            # Get the enemy's name or generic enemy
+            en = comm.split()[-1]
+            # Send the fight signal to the server to initiate combat
+            conn.sendall(('fight|'+en).encode())
+            result = conn.recv(256).decode()
+            # recieve a success or fail signal and handle it
+            if result.startswith("fail"):
+                print(result.split('|')[1])
+            else:
+                result = (conn.recv(4096).decode())
+                while result[:3] not in ('dea', 'win','run'):
+                    # While the server hasnt replied dead, win or run
+                    if result.startswith('text'):
+                        printf(result.split('|')[1])
+                    action = ''
+                    while not action:
+                        # Grab the action command from the player
+                        action = input('Action: ')
+                    # send it to the server and get the result
+                    conn.send(action.encode())
+                    result = conn.recv(4096).decode()
+
+                if result.startswith("win"):
+                    # print an encouraging message
+                    printf('You killed the {}!'.format(en))
+                    gxp = result.split('|')[1]
+                    # unpack the tuple into variables
+                    g,xp,hp_change = eval(gxp)
+                    g *= self.player.stats['level']
+                    # Add the gained experience and gold
+                    self.player.xp += xp
+                    self.player.inventory.add('Gold', g)
+                    # Tell the player about it
+                    printf('You found {} Gold!'.format(g))
+                    printf('You gained {} XP!'.format(xp))
+                    # Adjust the hp
+                    self.player.stats['health'] += hp_change
+
+                if result == "dead":
+                    # Print message
+                    print('You have died!!!')
+                    sleep(3)
+                    # Wait 3 seconds, clear the screen and reset the game.
+                    # TODO fix the bug where restarting 1000 times without exiting will crash the game
+                    print('\n'*50)
+                    g = Game()
+                    sys.exit()
+                if result.startswith('run'):
+                    # tell the player that they escaped
+                        printf('You flee from battle. The {} does not follow.'.format(result.split('|')[1]))
+                return False
+
         elif comm == 'inventory':
             conn.send('inventory'.encode())
             # Send the inventory command to the server
@@ -274,6 +334,42 @@ class Game:
         Run a given command on a Singleplayer world.
         '''
         comm = comm.lower()
+
+        if comm.startswith("help"):
+            if comm == "help":
+                # if the player just asked 'help' then display general help
+                text = ('''\nlook around - Display the area description again.
+go <direction> - Move your character in the chosen direction (n/s/e/w)
+inventory - Start the inventory screen. Allows you to drop, eat and equip items.
+talk to <name>|person - Start a conversation with a person in the area.
+show map - Display a simple ASCII art map.
+show status - Display the player\'s current status and inventory.
+fight enemy|<name> - Initiate combat with a nearby enemy or named enemy.
+enter store - Enter a store if in a city area, allows for trade.
+save - Save the game (Singleplayer only)
+exit - Exit or disconnect from the game.
+
+Use \'help inventory\' for help with the inventory,
+or \'help trade\' for help with stores.
+''')
+            else:
+                s = ''.join(comm.split()[1:])
+                if s == "inventory":
+                    # If they asked for help with the inventory then help them with that.
+                    text = '''eat <item_id> - Eat a single item with item_id and restore some HP.
+drop <item_id> <amount> - Drop an amount of items with item_id.
+equip <item_id> <left|right|armour> - Equip the item with item_id in the given spot.
+exit - Return to the game.'''
+                elif s == "trade":
+                    # ditto as above for trade
+                    text = ''''''
+                else:
+                    # Or error if invalid option
+                    text = ('Invalid help options!')
+            # Lastly print and return
+            printf(text)
+            return False
+
         pos = self.player.pos
         node = self.world.get_node(pos[0], pos[1])
         print()
@@ -316,7 +412,16 @@ class Game:
 
         elif comm == "show map":
             # Generate a sub-array of the current area around the player
-            array = [[self.world.get_node(pos[0]+a,pos[1]+b) for a in range(-3, 3) if pos[0] > -a and pos[0] < 999-a] for b in range(-2, 2) if pos[1] > -b and pos[1] < 999-b]
+            array = [[0 for a in range(-3,3)] for b in range(-2,2)]
+            for i, row in enumerate(array):
+                for j, node in enumerate(row):
+                    # If the area is an accessable spot, then add it to the map
+                    if 999 >= pos[0]+(-3+j) >= 0 and 999 >= pos[1]+(-2+i) >= 0:
+                        array[i][j] = self.world.get_node(pos[0]+(-3+j),pos[1]+(-2+i))
+                    else:
+                        # Otherwise create a null node area
+                        array[i][j] = Null_Node()
+
             map_art = []
             for i, row in enumerate(array):
                 # Check for north/south passages and clear the two middle hashes
@@ -343,7 +448,7 @@ class Game:
                                 elif node.typ == 'grass_plains':
                                     r = '{}grass {}'.format("#" if not node.hasWest else ' ', '#' if not node.hasEast else ' ')
                                 else:
-                                    r = "{}{}{}".format("#" if not node.hasWest else ' ', (' '*((6-len(node.typ))//2))+node.typ+(' '*((6-len(node.typ))//2)), '#' if not node.hasEast else ' ')
+                                    r = "{}{}{}".format("#" if not node.hasWest else ' ', (' '*((6-len(node.typ))//2))+node.typ+(' '*math.ceil((6-len(node.typ))/2)), '#' if not node.hasEast else ' ')
                             elif a == 2:
                                 # As above but with the second word of the node name if applicable
                                 if m == 3 and i == 2:
@@ -546,6 +651,80 @@ class MP_Game:
             elif data.startswith('inventory'):
                 self.players[index].inventory.modify(True, conn)
 
+            elif data.startswith('fight'):
+                en = data.split('|')[-1]
+                node = self.world.get_node(p.pos[0], p.pos[1])
+                en_len = len(node.enemies)
+                if en == "enemy":
+                    # the player is asking to fight a random entity
+                    if en_len > 0:
+                        e = random.randint(0, en_len-1)
+                        enemy = node.enemies[e]
+                    else:
+                        # Return an error message if there are no enemies nearby
+                        conn.send('fail|There are no enemies nearby!'.encode())
+                        continue
+                else:
+                    # The player is asking to fight a named entity
+                    fail = 'fail'
+                    for a in node.enemies:
+                        # Iterate through all enemies and check if any have the right name
+                        if a.name == en:
+                            e = node.enemies.index(a)
+                            enemy = a
+                            fail = ''
+                    if fail:
+                        # If no nearby enemies have that name then check the players
+                        for p in self.players:
+                            if p.name == en:
+                                enemy = p
+                                fail = ''
+                    if fail:
+                        # Return an error message if there is no enemy with given name
+                        conn.send(fail+'|'+'There is no enemy with that name!')
+                        continue
+                combat = Combat(p, enemy)
+                init_hp = p.stats['health']
+                gxp = combat.run(conn)
+                combat = None
+
+                if gxp == None:
+                    # If the player runs away
+                    continue
+
+                if gxp == "dead":
+                    # Remove the player from the player list
+                    # Death message is handled by client
+                    del self.players[index]
+                    return
+
+                # Send the gold gain and xp gain to the client
+                # so it can update it's local player details
+                # also, send the hp change to the client
+                hp_change = p.stats['health']-init_hp
+                # Unpack the tuple, append the hp change, then repack
+                gxp = list(gxp)
+                gxp.append(hp_change)
+                gxp = tuple(gxp)
+                # Send the tuple as a string to the client
+                conn.send(('win|'+str(gxp[1:])).encode())
+
+                # Modify the player variable due to changes during battle
+                p = gxp[0]
+
+                # add the xp to the player
+                p.xp += gxp[2]
+
+                # Adjust level as neccessary
+                p.stats['level'] = int(5**(len(str(p.xp))-2))
+
+                # Add gold to the player's inventory
+                p.inventory.add('Gold', gxp[1]*p.stats['level'])
+
+                x,y = p.pos
+                # AND finally, remove the enemy that we just killed
+                del self.world.chunk_array[y//10][x//10].array[y%10][x%10].enemies[e]
+
             # Handle dialogue over the lan communication.
             elif data.startswith('talk'):
                 comm = data.split('|')[-1]
@@ -659,7 +838,16 @@ class MP_Game:
 
         elif comm == "show map":
             # Get a small array of nodes immediately around the player
-            array = [[self.world.get_node(pos[0]+a,pos[1]+b) for a in range(-3, 3) if pos[0] > -a and pos[0] < 999-a] for b in range(-2, 2) if pos[1] > -b and pos[1] < 999-b]
+            array = [[0 for a in range(-3,3)] for b in range(-2,2)]
+            for i, row in enumerate(array):
+                for j, node in enumerate(row):
+                    # If the area is an accessable spot, then add it to the map
+                    if 999 >= pos[0]+(-3+j) >= 0 and 999 >= pos[1]+(-2+i) >= 0:
+                        array[i][j] = self.world.get_node(pos[0]+(-3+j),pos[1]+(-2+i))
+                    else:
+                        # Otherwise create a null node area
+                        array[i][j] = Null_Node()
+
             map_art = []
             for i, row in enumerate(array):
                 # check for north/south passages and clear the two middle hashes

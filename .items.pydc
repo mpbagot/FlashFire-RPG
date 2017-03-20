@@ -2,7 +2,7 @@ Item-ID,ItemName,ItemType,HealthRestore,AttackDamage,Defense/Resistance
 0,Gold,money,0,0,0
 1,Apple,food,2,0,0
 2,Iron Shortsword,weapon,0,3,0
-3,Buckler Shield,shield,0,0,1
+3,Buckler Shield,shield,0,0,2
 4,Heal Spell,spell,1,0,0
 5,5-item,food,0,0,0
 6,6-item,food,0,0,0
@@ -95,7 +95,7 @@ Item-ID,ItemName,ItemType,HealthRestore,AttackDamage,Defense/Resistance
 93,93-item,food,0,0,0
 94,94-item,food,0,0,0
 95,95-item,food,0,0,0
-96,96-item,food,0,0,0
-97,97-item,food,0,0,0
-98,98-item,food,0,0,0
-99,99-item,food,0,0,0
+96,<b>SPELL</b>,spell,0,80,0
+97,Elixir of Purity,food,199,0,0
+98,Daemon Scythe,weapon,0,99,0
+99,Penguin Suit,clothes,0,0,99

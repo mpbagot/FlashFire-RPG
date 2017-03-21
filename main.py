@@ -98,7 +98,7 @@ class Game:
         seed = genSeed(seed)
 
         #And create a Player object with it and the name
-        self.player = Player(seed, name, pos)
+        self.player = Player(seed, name, pos, False if diff == 'hard' else True)
         printf("Character Generation Complete!")
         print()
         sleep(1)
@@ -147,6 +147,8 @@ class Game:
         #Clear the screen before starting
         for a in range(50):
             print('')
+
+        play_intro('intro.txt')
 
         x = True
 
@@ -236,12 +238,19 @@ class Game:
             en = comm.split()[-1]
             # Send the fight signal to the server to initiate combat
             conn.sendall(('fight|'+en).encode())
-            result = conn.recv(256).decode()
+            result = conn.recv(4096).decode().split('XXX')
+            result.append('')
+            s = result[1]
+            result = result[0]
+            print(result)
             # recieve a success or fail signal and handle it
             if result.startswith("fail"):
                 print(result.split('|')[1])
             else:
-                result = (conn.recv(4096).decode())
+                if not s:
+                    result = s+(conn.recv(4096).decode())
+                else:
+                    result = s
                 while result[:3] not in ('dea', 'win','run'):
                     # While the server hasnt replied dead, win or run
                     if result.startswith('text'):
@@ -251,7 +260,7 @@ class Game:
                         item = input('Choose an Item: ')
                         while not item.isnumeric() and item >= len(p.inventory.get_combat()):
                             item = input('Invalid Item ID!\nChoose an Item: ')
-                        conn.sendall(str(item))
+                        conn.sendall(str(item).encode())
                     action = ''
                     while not action:
                         # Grab the action command from the player
@@ -754,7 +763,7 @@ class MP_Game:
                                 fail = ''
                     if fail:
                         # Return an error message if there is no enemy with given name
-                        conn.send(fail+'|'+'There is no enemy with that name!')
+                        conn.send('fail|There is no enemy with that name!'.encode())
                         continue
                 combat = Combat(p, enemy)
                 init_hp = p.stats['health']

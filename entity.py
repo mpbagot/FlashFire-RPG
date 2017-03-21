@@ -12,7 +12,12 @@ class Enemy:
         names = [n for n in open('.enemy_names.txt').read().split('\n') if n != '']
         x = len(names)
         # and pick a random one from it
-        self.name = names[random.randint(0, x-1)]
+        self.name = names[random.randint(0, x-2)]
+        if random.randint(0, 50) == 0:
+            self.name = names[6]
+        if self.name == 'Dragon':
+            self.hp *= 2
+            self.attack *= 1.5
 
     def __str__(self):
         '''
@@ -81,7 +86,7 @@ class Combat:
 
         if conn:
             # If playing as client, send success result to client
-            conn.sendall('success'.encode())
+            conn.send('successXXX'.encode())
             print(self.enemy)
             if not isinstance(self.enemy, Player):
                 # If the enemy is an enemy
@@ -160,6 +165,8 @@ class Combat:
                     # Add a helpful message
                     text += '\nThe {} loses {} HP!'.format(self.enemy.name, item.attrs.get('damage'))
 
+                # TODO de-iterate the stack when you use the item
+
             elif comm == "3":
                 # if you get really lucky then you can run
                 if random.randint(0, abs(int(10-self.player.stats['level']/10))) == 0 or not noticed:
@@ -201,7 +208,7 @@ class Combat:
 
                 hp_loss = random.randint(2, int(self.enemy.attack))-dam_res if random.randint(0, 10) != 0 else 0
                 # Jokingly nullify damage if you are insanely overpowered
-                if hp_loss < 0:
+                if hp_loss <= 0:
                     text += '\nThe {} hits you, but your armour nullifies the damage!'.format(self.enemy.name)
                 else:
                     # If the hp loss is positive though, you still have to take it.

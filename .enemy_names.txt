@@ -2,3 +2,6 @@ Goblin
 Wolf
 Bandit
 Troll
+Gnome
+Elf
+Dragon

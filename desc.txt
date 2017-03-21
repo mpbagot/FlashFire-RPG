@@ -1,4 +1,4 @@
-forest|You are in a lush forest. The trees may hide many secrets.
-grass_plains|You are in a large open field of grass. A gentle wind blows around you.
-city|You are in a bustling city. People mill about their daily lives all around you.
-desert|You are in a desert, devoid of life. Sand stretches around you for great distances.
+forest|You are in a lush forest. The trees tower around you.|The dark forest stretches around you. The trees may hide an ambush.
+grass_plains|You are in a large open field of grass. A gentle wind blows around you.|The grass of the field bends gently under the force of the wind.
+city|You are in a bustling city. People mill about their daily lives all around you.|The city noise echoes through the open, paved streets.
+desert|You are in a desert, devoid of life. Sand stretches around you for great distances.|The sand of the desert pulls your feet down. You grow tired quickly.

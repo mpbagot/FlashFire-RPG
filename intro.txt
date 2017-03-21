@@ -1,0 +1,16 @@
+play_music intro_back
+
+Welcome to the world of Hereva.
+This is a world full of magic and mythical creatures.
+/
+However, an evil force has taken over the land. The people of Hereva live under
+the control of XXX, a XXX.
+/
+Only you, a powerful warrior, can help the people of Hereva and lead them to freedom.
+/
+Your path will not be easy, but you will succeed,
+/
+you must,
+/
+For the sake of the world.
+-

@@ -15,7 +15,7 @@ class World:
         if gen:
             #Generate an empty array
             if pos != []:
-                self.s_chunk = [(pos[0]//10)-1, (pos[1]//10)-1]
+                self.s_chunk = [(pos[0]//10)-2, (pos[1]//10)-2]
                 self.generate_start(difficulty, lod)
                 sys.stdout.write('World Generation complete!\n')
 
@@ -25,8 +25,8 @@ class World:
 
     def generate_start(self, difficulty, lod):
         x,y = self.s_chunk[0], self.s_chunk[1]
-        for a in range(3):
-            for b in range(3):
+        for a in range(5):
+            for b in range(5):
                 if x+b < 99 and y+a < 99:
                     if self.chunk_array[y+a][x+b] == 0:
                         self.chunk_array[y+a][x+b] = self.make_chunk(x+b, y+a, difficulty, lod)
@@ -54,6 +54,7 @@ class World:
         '''
         Load the world array from a saved file
         '''
+        # TODO fix loading from file speed and accuracy
         w = World(len(details)*10, len(details[0])*10, 0, 0, gen=False)
         y = len(details)
         x = len(details[0])
@@ -166,7 +167,13 @@ class World:
         '''
         Get a node at the given world coordinates
         '''
-        return self.chunk_array[y//10][x//10].array[y%10][x%10]
+        try:
+            chunk = self.chunk_array[y//10][x//10]
+            if not chunk:
+                self.chunk_array[y//10][x//10] = self.make_chunk(x//10,y//10,2,2)
+            return self.chunk_array[y//10][x//10].array[y%10][x%10]
+        except AttributeError:
+            raise Exception(str((x,y)))
 
     def get_chunk(self, x, y):
         '''
@@ -240,6 +247,7 @@ class Area_Node:
         self.hasNorth, self.hasSouth = (n,s)
         self.hasEast, self.hasWest = (e,w)
         self.store = None
+        self.desc_index = None
 
     def get_description(self):
         '''
@@ -279,8 +287,10 @@ class Area_Node:
             # Otherwise just state the number of enemies.
             string += ('\nThere '+('are {} enemies' if len(self.enemies) != 1 else 'is {} enemy')+' nearby.').format(len(self.enemies))
         x = len(dc[self.typ])-1
+        if not self.desc_index:
+            self.desc_index = random.randint(0, x)
         # Return the area description + the other details.
-        return dc[self.typ][random.randint(0, x)] + string
+        return dc[self.typ][self.desc_index] + string
 
     def __str__(self):
         '''

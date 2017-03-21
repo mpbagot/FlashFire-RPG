@@ -210,7 +210,7 @@ class Inventory:
             # conts.append((item_id, 1))
             item = Item(item_id, 1)
             self.add(item.attrs['name'].lower(), 1)
-        self.add('daemon scythe',1)
+
         if give_gold:
             # If not playing on hard, then give 30 starting gold
             self.contents.append((0, 30))

@@ -1,91 +1,74 @@
 import random
 from entity import *
-import time
-from threading import Thread
-from multiprocessing import Pool,Process
+from time import sleep
 import sys
-
-# pool = Pool()
 
 class World:
     def __init__(self, x, y, difficulty, lod, pos=[], gen=True):
         self.diff = difficulty
         self.lod = lod
+
+        self.is_loading = False
+        self.details = None
+
+        #Generate an empty array
         self.chunk_array = [[0 for b in range(x//10)] for a in range(y//10)]
         if gen:
-            #Generate an empty array
             if pos != []:
+                # Generate the starting area around the player
                 self.s_chunk = [(pos[0]//10)-2, (pos[1]//10)-2]
                 self.generate_start(difficulty, lod)
                 sys.stdout.write('World Generation complete!\n')
 
-            self.t = Thread(target=self.generate_world, args=(x,y, difficulty, lod))
-            self.t.daemon = True
-            self.t.start()
-
     def generate_start(self, difficulty, lod):
+        '''
+        Generate a small starting cluster of chunks
+        '''
         x,y = self.s_chunk[0], self.s_chunk[1]
+        # Iterate a 5x5 square
         for a in range(5):
             for b in range(5):
+                # If the chunk is within the world bounds and it hasn't (for some crazy reason) been previously generated
                 if x+b < 99 and y+a < 99:
                     if self.chunk_array[y+a][x+b] == 0:
+                        # Generate a chunk and add it to the world array
                         self.chunk_array[y+a][x+b] = self.make_chunk(x+b, y+a, difficulty, lod)
-
-    def generate_world(self, x, y, difficulty, lod, show_bar=False):
-        # Loop the chunk array
-        if show_bar:
-            sys.stdout.write('[')
-            sys.stdout.flush()
-        for i in range(y//10):
-            if show_bar and i%3 == 0:
-                sys.stdout.write('#')
-                sys.stdout.flush()
-            for j in range(x//10):
-                # And populate it with Chunks
-                if self.chunk_array[j][i] == 0:
-                    self.chunk_array[j][i] = self.make_chunk(j, i, difficulty, lod)
-                    # print('Generating incomplete chunk...')
-        if show_bar:
-            sys.stdout.write(']\n')
-            sys.stdout.flush()
 
     @staticmethod
     def generate_from_file(details, pos=[1, 1]):
         '''
         Load the world array from a saved file
         '''
-        # TODO fix loading from file speed and accuracy
+        # Create an empty world object
         w = World(len(details)*10, len(details[0])*10, 0, 0, gen=False)
-        y = len(details)
-        x = len(details[0])
-        num = 0
-        for row in range(y):
-            if row%3 == 0 and row != 0:
-                num += 1
-            for chunk in range(x):
-                #fill the given chunk with a generated chunk
-                w.chunk_array[row][chunk] = Chunk.get_by_string([row, chunk], eval(details[row][chunk]), w)
-                print('[{}{}]'.format(num*'#', (33-num)*'-'), end='\r')
-        print()
-        t = Thread(target=w.generate_world, args=(x, y, 'medium', 2))
-        t.daemon = True
-        t.start()
+        # Set is_loading so that it loads, not generates new chunks
+        w.is_loading = True
+        # Set the load string array for the world
+        w.details = details
         return w
 
     def get_save_string(self):
         '''
         Get the string used to save the node in the save file
         '''
-        array = [[str(self.get_chunk(x,y)) for x in range(len(self.chunk_array))] for y in range(len(self.chunk_array))]
+        array = [[str(chunk) for chunk in row] for row in self.chunk_array]
         return str(array)
 
     def get_description(self, pos):
+        '''
+        Get the area description for the node at the given position
+        '''
         return self.get_node(pos[0],pos[1]).get_description()
 
     def make_chunk(self, x, y, diff, lod):
+        '''
+        Generate a chunk object based on position
+        '''
+        # Generate an empty Chunk object
         chunk = Chunk([x,y])
         for a in range(10):
             for b in range(10):
+                # Iterate the x and y of the array and create nodes to fill it
                 chunk.array[b][a] = self.make_node(chunk, a, b, diff, lod)
         return chunk
 
@@ -158,6 +141,9 @@ class World:
         return Area_Node(hasNorth, hasSouth, hasEast, hasWest, enemies, typ, npc)
 
     def set_node(self, pos, **kwargs):
+        '''
+        Re-set any values associated with a chunk. Uses a kwargs for variable input
+        '''
         x,y = pos
         for var in kwargs:
             if var == 'store':
@@ -167,13 +153,25 @@ class World:
         '''
         Get a node at the given world coordinates
         '''
-        try:
-            chunk = self.chunk_array[y//10][x//10]
-            if not chunk:
-                self.chunk_array[y//10][x//10] = self.make_chunk(x//10,y//10,2,2)
-            return self.chunk_array[y//10][x//10].array[y%10][x%10]
-        except AttributeError:
-            raise Exception(str((x,y)))
+        # Grab the chunk at the specified position
+        chunk = self.chunk_array[y//10][x//10]
+        # If the chunk hasn't been generated or loaded
+        if not chunk:
+            # If the world is a loaded world (not new)
+            if self.is_loading:
+                # Generate a chunk by it's save string and set it into the map
+                chunk = Chunk.get_by_string([y//10, x//10], eval(self.details[y//10][x//10]), self)
+                if chunk:
+                    # If the get_by_string returned a valid chunk object then add it to the array
+                    self.chunk_array[y//10][x//10] = chunk
+                else:
+                    # Or if it returned 0 then create a chunk for the array
+                    self.chunk_array[y//10][x//10] = self.make_chunk(x//10,y//10,'medium',2)
+            else:
+                # Generate a fresh chunk and set it into the map
+                self.chunk_array[y//10][x//10] = self.make_chunk(x//10,y//10,'medium',2)
+        # Return the chosen node from the chunk
+        return self.chunk_array[y//10][x//10].array[y%10][x%10]
 
     def get_chunk(self, x, y):
         '''
@@ -198,14 +196,16 @@ class Chunk:
         Get a chunk object from a save string
         '''
         chunk = Chunk(pos)
-        if details != 0:
+        if details != '0':
+            # If the string it's returning is a complete chunk string then load it
             for i, row in enumerate(details):
                 for j, node in enumerate(row):
                     # Add a loaded node to the array
                     chunk.array[i][j] = Area_Node.get_by_string(node)
         else:
+            # Otherwise, return 0
             chunk = 0
-        #     chunk = w.make_chunk(*chunk.pos, 'medium', 2)
+
         return chunk
 
     def __str__(self):
@@ -219,7 +219,7 @@ class Chunk:
         '''
         Determine if the chunk is on the southern edge of the world
         '''
-        return self.pos[1] == 999
+        return self.pos[1] == 99
 
     def is_far_north(self):
         '''
@@ -231,7 +231,7 @@ class Chunk:
         '''
         Determine if the chunk is on the eastern edge of the world
         '''
-        return self.pos[0] == 999
+        return self.pos[0] == 99
 
     def is_far_west(self):
         '''

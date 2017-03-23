@@ -52,6 +52,9 @@ def play_music(mname):
     '''
     Play background music with the given name
     '''
+    # pygame.mixer.music.stop()
+    # pygame.mixer.music.load('sound/music/{}.ogg'.format(mname))
+    # pygame.mixer.music.play()
     pass
 
 def log(text):

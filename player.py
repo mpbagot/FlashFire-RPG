@@ -50,6 +50,9 @@ class Inventory:
         self.equipped = {'left':None, 'right':None, 'armour':None}
         self.player = name
 
+    def __len__(self):
+        return len(self.contents)
+
     def modify(self, over_lan=False, conn=None):
         '''
         Run an inventory interface screen
@@ -190,6 +193,9 @@ class Inventory:
         self.contents.append(item)
 
     def get_combat(self):
+        '''
+        Get a sub-inventory of all items usable in combat
+        '''
         contents = []
         for a in self.contents:
             if Item(*a).attrs['type'] in ('food','spell'):
@@ -262,6 +268,23 @@ class Player:
         stats['speed'] = getRandomStat(seed, 2)
         stats['level'] = 1
         return stats
+
+    def get_stats(self):
+        '''
+        Generate a little Stats table for status screen
+        '''
+        stats = []
+        # iterate the stats dictionary
+        for i, stat in enumerate(self.stats):
+            if stat not in ('max_health', 'health'):
+                # Adjust the stat name
+                stat_fix = ' '.join(stat.split('_'))
+                # Add the stat to the array
+                stats.append(stat[0].upper()+stat_fix[1:]+': {}'.format(self.stats[stat]))
+        stats.sort()
+        stats[2], stats[-1] = stats[-1],stats[2]
+        # Join the string and return
+        return '\n'.join(stats)
 
     def has_correct_funds(self, cost):
         '''
@@ -565,6 +588,114 @@ class Topic:
     def __init__(self, name, fact):
         self.name = name
         self.stats = fact
+
+class Dialogue2:
+    def __init__(self, player, node, npc, name=None):
+        self.g_speech = npc.gender
+        self.n_age = npc.age
+        a = ('M', 'F')
+        if random.randint(0, 80) == 0:
+            self.g_speech = a[(a.index(npc.gender)+1)%2]
+
+        self.g_speech += 'ale' if npc.gender == 'M' else 'emale'
+
+        self.g_name = npc.name
+        self.in_strife = npc.has_quest
+        self.p_name = player.name
+        self.area = node.typ
+        self.is_afraid = player.name not in npc.known_players
+        if not name:
+            self.tree = Tree.get_generic_tree(self.g_speech)
+        else:
+            self.tree = Tree.get_tree(name)
+        self.layers = []
+
+    def start_talk(self):
+        '''
+        Say a simple statement to begin
+        '''
+        text = ''
+        # For each reply
+        for i, a in enumerate(self.tree):
+            # return what it could be back
+            text += '({}) {}\n'.format(i+1, a[0][0])
+
+        return self.g_name+': ...\n\n'+text
+
+    def respond(self, num):
+        '''
+        Recurse another layer into the dialogue tree and respond as neccessary
+        '''
+        t = self.tree
+        for a in self.layers:
+            # Keep getting the next layer down
+            t = t[a][2]
+
+        # Add the speech index for the next layer
+        self.layers.append(int(num)-1)
+        text = ''
+        # If the tree hasn't hit the end then print possible reply options
+        if not self.is_finished() and self.is_finished() != '':
+            t = self.tree
+            for a in self.layers[:-1]:
+                t = t[a][2]
+
+            # For each reply
+            for i, a in enumerate(t):
+                # return what it could be back
+                text += '({}) {}\n'.format(i+1, a[0][0])
+
+            text = ''
+            # For each reply
+            for i, a in enumerate(t[int(num)-1][2]):
+                # return what it could be back
+                text += '({}) {}\n'.format(i+1, a[0][0])
+        if self.is_finished() == '':
+            self.layers = self.layers[:-1]
+            # An invalid response number was input
+            return 'Invalid response number!\n'+text
+        return '{}: {}'.format(self.p_name, t[int(num)-1][0][1]) + '\n{}: {}\n'.format(self.g_name, t[int(num)-1][1]) + text
+
+    def is_finished(self):
+        '''
+        Return if the conversation is over
+        '''
+        t = self.tree
+        for a in self.layers:
+            try:
+                t = t[a][2]
+            except IndexError:
+                return ''
+                # return None
+        if isinstance(t[0], str):
+            return True
+        return False
+
+class Tree:
+    @staticmethod
+    def get_generic_tree(gender):
+        '''
+        Get a generic dialogue tree
+        '''
+        g = gender.lower()
+        # Read the speech file
+        f = open('speech.txt').read().split('\n')
+        # Wittle down the options
+        f = [eval(a.split('|')[1]) for a in f if a.startswith('generic_{}'.format(g))]
+        # Return one of the trees
+        return f[random.randint(0, len(f)-1)]
+
+    @staticmethod
+    def get_tree(name):
+        '''
+        Get a dialogue tree by name (used for quest NPC's)
+        '''
+        for line in open('speech.txt').read().split('\n'):
+            # Iterate and check if the tree on this line has the correct name
+            if line.startswith(name):
+                return eval(line.split('|')[1])
+        # Return a generic tree if the named tree cant be found
+        return Tree.get_generic_tree('male')
 
 class Trade:
     def __init__(self, player, node, p2=None):

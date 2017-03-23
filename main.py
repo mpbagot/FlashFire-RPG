@@ -231,7 +231,10 @@ class Game:
             # Loop the conversation back and forth and print, here on the client-side
             while result[-2].split()[-1].lower() not in ('goodbye', 'farewell'):
                 printf(result[-2])
-                conn.send(('talk|'+input(self.player.name+': ')).encode())
+                response = input('>>> ')
+                while not response.isnumeric():
+                    response = input('>>> ')
+                conn.send(('talk|'+response).encode())
                 result = conn.recv(65536).decode().split("|")
 
         elif comm.startswith('fight'):
@@ -493,7 +496,7 @@ exit - Return to the game.'''
                 # If the player is just looking for a random person
                 if len(node.npc) > 0:
                     # If any person is found nearby then create a dialogue with that person
-                    dia = Dialogue(self.player, node, node.npc[random.randint(0, len(node.npc)-1)])
+                    dia = Dialogue2(self.player, node, node.npc[random.randint(0, len(node.npc)-1)])
 
             else:
                 # If the player is looking for a specific NPC
@@ -611,7 +614,10 @@ exit - Return to the game.'''
         printf(dial.start_talk())
         while not dial.is_finished():
             # Input and respond with the dialogue whilst the NPC keeps talking
-            response = input(dial.p_name+': ')
+            response = input('>>> ')
+            while not response.isnumeric():
+                response = input('>>> ')
+
             text = dial.respond(response)
             printf(text)
 

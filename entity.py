@@ -116,6 +116,7 @@ class Combat:
                 else:
                     dam = 1
                 if noticed and random.randint(0, 10) != 0:
+                    dam += self.player.stats.get('attack')//25
                     text = "You strike at the {}. You deal {} damage.".format(self.enemy.name,dam)
                     self.enemy.hp -= dam
                 elif not noticed:
@@ -143,8 +144,20 @@ class Combat:
                 else:
                     print(self.player.inventory.get_combat())
                     item = input('Choose an Item: ')
-                    while not item.isnumeric() and item >= len(self.player.inventory.get_combat()):
-                        item = input('Invalid Item ID!\nChoose an Item: ')
+                    while True:
+                        if not item:
+                            print('No selection made!')
+                        elif not item.isnumeric():
+                            if item == 'exit':
+                                break
+                            print('That\'s not an Item ID!')
+                        elif int(item)-1 >= len(self.player.inventory.get_combat()) or int(item) < 1:
+                            print('Invalid Item ID!')
+                        else:
+                            break
+                        item = input('Choose an Item: ')
+                    if item == 'exit':
+                        continue
                     item = self.player.inventory.get_combat().contents[int(item)-1]
                 # Get the item object for all operations below
                 item = Item(*item)
@@ -169,7 +182,7 @@ class Combat:
 
             elif comm == "3":
                 # if you get really lucky then you can run
-                if random.randint(0, abs(int(10-self.player.stats['level']/10))) == 0 or not noticed:
+                if random.randint(0, abs(int((self.player.stats['speed']//10)+100-self.player.stats['level'])//10)) == 0 or not noticed:
                     if conn:
                         # If on a server, send a message to the client and exit
                         conn.send(('run|'+self.enemy.name).encode())
@@ -205,7 +218,7 @@ class Combat:
                     dam_res = armour.attrs['damage_resist']
                 else:
                     dam_res = 0
-
+                dam_res += self.player.stats.get('defense')//25
                 hp_loss = random.randint(2, int(self.enemy.attack))-dam_res if random.randint(0, 10) != 0 else 0
                 # Jokingly nullify damage if you are insanely overpowered
                 if hp_loss <= 0:

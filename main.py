@@ -262,8 +262,18 @@ class Game:
                     if result.startswith('alert'):
                         printf(result.split('|')[1])
                         item = input('Choose an Item: ')
-                        while not item.isnumeric() and item >= len(p.inventory.get_combat()):
-                            item = input('Invalid Item ID!\nChoose an Item: ')
+                        while True:
+                            if not item:
+                                print('No selection made!')
+                            elif not item.isnumeric():
+                                if item == 'exit':
+                                    break
+                                print('That\'s not an Item ID!')
+                            elif int(item)-1 >= len(self.player.inventory.get_combat()) or int(item) < 1:
+                                print('Invalid Item ID!')
+                            else:
+                                break
+                            item = input('Choose an Item: ')
                         conn.sendall(str(item).encode())
                     action = ''
                     while not action:

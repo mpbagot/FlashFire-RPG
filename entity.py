@@ -139,6 +139,8 @@ class Combat:
                     # If over lan then send an alert back to the client
                     conn.send('alert|{}'.format(self.player.inventory.get_combat()).encode())
                     item = int(conn.recv(3).decode())-1
+                    if item == "exit":
+                        continue
                     # Pull back the item id and grab the item tuple
                     item = self.player.inventory.get_combat().contents[item]
                 else:

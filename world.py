@@ -13,26 +13,6 @@ class World:
 
         #Generate an empty array
         self.chunk_array = [[0 for b in range(x//10)] for a in range(y//10)]
-        if gen:
-            if pos != []:
-                # Generate the starting area around the player
-                self.s_chunk = [(pos[0]//10)-2, (pos[1]//10)-2]
-                self.generate_start(difficulty, lod)
-                sys.stdout.write('World Generation complete!\n')
-
-    def generate_start(self, difficulty, lod):
-        '''
-        Generate a small starting cluster of chunks
-        '''
-        x,y = self.s_chunk[0], self.s_chunk[1]
-        # Iterate a 5x5 square
-        for a in range(5):
-            for b in range(5):
-                # If the chunk is within the world bounds and it hasn't (for some crazy reason) been previously generated
-                if x+b < 99 and y+a < 99:
-                    if self.chunk_array[y+a][x+b] == 0:
-                        # Generate a chunk and add it to the world array
-                        self.chunk_array[y+a][x+b] = self.make_chunk(x+b, y+a, difficulty, lod)
 
     @staticmethod
     def generate_from_file(details, pos=[1, 1]):
@@ -196,7 +176,7 @@ class Chunk:
         Get a chunk object from a save string
         '''
         chunk = Chunk(pos)
-        if details != '0':
+        if details != 0:
             # If the string it's returning is a complete chunk string then load it
             for i, row in enumerate(details):
                 for j, node in enumerate(row):

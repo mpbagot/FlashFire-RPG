@@ -148,7 +148,8 @@ class Game:
         for a in range(50):
             print('')
 
-        play_intro('intro.txt')
+        if adr or not self.world.is_loading:
+            play_intro('intro.txt')
 
         x = True
 
@@ -393,7 +394,7 @@ exit - Return to the game.'''
             return True
 
         elif comm == 'show status':
-            printf('Status:\n{}\n\n{}'.format(str(self.player), str(self.player.inventory)))
+            printf('Status:\n{}\n\n{}'.format(str(self.player), self.player.get_stats()))
 
         elif comm == 'inventory':
             # Modify the player's health based on what they do in the inventory screen
@@ -695,11 +696,6 @@ class MP_Game:
                 printf('Player {} has joined the server!'.format(p.name))
                 # Add the user object to the players list
                 self.players.append(p)
-                self.world.s_chunk = [(p.pos[0]//10)-1, (p.pos[1]//10)-1]
-                # Make a new thread and generate a small area around the joining player in it
-                t = threading.Thread(target=self.world.generate_start, args=(self.world.diff, self.world.lod))
-                t.daemon = True
-                t.start()
                 index = self.players.index(p)
                 # Return the player's unique index to them
                 conn.sendall(str(index).encode())
@@ -914,7 +910,7 @@ class MP_Game:
             return text+'|1'
 
         elif comm == 'show status':
-            text = '\nStatus:\n{}\n\n{}'.format(str(self.players[id]), str(self.players[id].inventory))
+            text = '\nStatus:\n{}\n\n{}'.format(str(self.players[id]), self.players[id].get_stats())
 
         elif comm == "exit":
             return 'disconnect'

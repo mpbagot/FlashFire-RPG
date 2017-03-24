@@ -56,7 +56,7 @@ class World:
         '''
         Generate a new random area nodes
         '''
-        dc = {'easy':1, 'medium':2, 'hard':4.5}
+        dc = {'easy':1, 'medium':3, 'hard':4.5}
         #generate passage in a variety of directions based on
         #surrounding nodes and randomness
         hasNorth = hasSouth = hasEast = hasWest = False
@@ -92,7 +92,7 @@ class World:
         #Generate randomly difficult enemies based on difficulty
         enemies = []
         if random.randint(1,9)//dc[dif] == 1:
-            for a in range(random.randint(0, int(dc[dif]))):
+            for a in range(random.randint(1, int(dc[dif]))):
                 enemies.append(Enemy(dc[dif], [x,y]))
 
         #generate a type for the node, generates cities in blocks

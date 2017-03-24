@@ -240,6 +240,12 @@ class Inventory:
 
         return text
 
+    def has_item(self, item_id):
+        for item in self.contents:
+            if item[0] == item_id:
+                return True
+        return False
+
 class Player:
     def __init__(self, seed, name, pos, give_gold=True):
         self._seed = seed
@@ -247,6 +253,7 @@ class Player:
         self.xp = 0
         self.name = name
         self.pos = pos
+        self.current_quests = []
         self.in_conversation = False
         self.is_hard = give_gold
         self.inventory = Inventory(seed, name, give_gold)
@@ -315,6 +322,15 @@ class Player:
                     # we can just del the itemstack if quantity is equal to cost.
                     del self.inventory.contents[j]
 
+    def on_end_battle(self):
+        '''
+        Update the changes to a current quest after a victory in battle
+        '''
+        for i, quest in enumerate(self.current_quests):
+            if not quest.is_recovery and quest.is_eligible_for_update(self.pos):
+                self.current_quests[i].current_kill_count += 1
+                return
+
     def __str__(self):
         return '/ {} / HP: {} / Co-ords: {} /'.format(self.name, str(self.stats['health'])+'/'+str(self.stats['max_health']), self.pos)
 
@@ -322,7 +338,7 @@ class Player:
         '''
         Generate the string of data for saving the game
         '''
-        return '{}|{}|{}|{}|{}'.format(self._seed, self.name, str(self.pos), str(self.stats), self.xp)
+        return '{}|{}|{}|{}|{}|{}'.format(self._seed, self.name, self.pos, self.stats, self.xp, self.encode_quests())
 
     @staticmethod
     def get_by_string(string):
@@ -334,260 +350,17 @@ class Player:
         p = Player(line[0], line[1], eval(line[2]))
         p.stats = eval(line[3])
         p.xp = int(line[4])
+        p.current_quests = eval(line[5])
+        for a in range(len(p.current_quests)):
+            p.current_quests[a] = Quest.get_by_string(p.current_quests[a], p)
         # Set the stats and return
         return p
 
-class Dialogue:
-    def __init__(self, player, node, npc):
-        self.g_speech = npc.gender
-        self.n_age = npc.age
-        a = ('M', 'F')
-        if random.randint(0, 80) == 0:
-            self.g_speech = a[(a.index(npc.gender)+1)%2]
-        self.g_name = npc.name
-        self.in_strife = npc.has_quest
-        self.p_name = player.name
-        self.area = node.typ
-        self.is_afraid = player.name not in npc.known_players
-        self.far_from_civ = node.typ != 'city'
-
-        self.line_log = []
-        self.known_facts = []
-
-    def respond(self, res):
-        '''
-        Respond to a given input statement
-        '''
-        text = 'What you just said makes no sense.'
-        # Add the user-spoken line to the line log
-        self.line_log.append(res)
-        x = self.is_question(res)
-        if x is None:
-            text = '...'
-        if x:
-            # This is true if res is just a question
-            text = self.parse_question(res)
-        else:
-            words = re.findall(r'\w+', res)
-            # The text is either a conditional statement + (question or statement) or just simply a statement.
-            if words[0] in ('if', 'for', 'where', 'in'):
-                # Starts with a conditional statement, parse the question relative to it
-                condition = res.split(',')[0].strip()
-                station = res.split(',')[1].strip()
-                # print(station)
-                # Check if station is a statement or question
-                if not self.is_question(station):
-                    text = self.parse_statement(station, condition)
-                else:
-                    text = self.parse_question(station, condition)
-
-            else:
-                # The sentence is just a plain statement
-                text = self.parse_statement(res)
-
-        if res.lower() == "goodbye":
-            self.is_finished = self._meh
-            text = 'Goodbye.'
-        return '{}: {}'.format(self.g_name, text)
-
-    def _meh(self):
-        '''
-        Stand in function to be swapped with is_finished.
-        and yes, I do realise I could do this more easily.
-        '''
-        return True
-
-    def is_question(self, res):
-        '''
-        Determine if the input statement is a question or statement
-        '''
-        words = re.findall(r'\w+', res)
-        if words == []:
-            return None
-        if words[0].lower() in ('who', 'would', 'am', 'what', 'whats' 'when', 'where', 'why', 'how', 'are', 'is', 'isn\'t', 'isnt', 'does', 'do', 'did', 'will'):
-            if words[0] == 'will':
-                # If this is true then it'S a valid 'will something' question
-                return (words[1] in ('you', 'i', 'it', 'they', 'those', 'the', 'that', 'he', 'she') or (words[0][0].isupper() and words[0][1:].islower()))
-            else:
-                # If it's a valid question, not starting with 'will'
-                return True
-        else:
-            return False
-            # The text is either a conditional statement + (question or statement) or just simply a statement.
-
-    def parse_question(self, question, condition=None):
-        '''
-        Determine what the user is asking and answer if possible
-        '''
-        # TODO determine the result, either based on condition
-        # or not, and return the answer
-
-        if not condition:
-            # Parse a standard question without a conditional statement.
-
-            # If the NLTK (Natural Language ToolKit) is installed then use proper parsing
-            if has_nltk:
-                # Tokenise and Tag the words in the sentence
-                sentence = nltk.word_tokenize(question)
-                tags = nltk.pos_tag(sentence)
-
-                # Set empty topic and value strings
-                topic = ''
-                needed_value = ''
-                # Iterate and fill in the topic and value tags
-                for tag in tags:
-                    # If the tag for the word is a pronoun
-                    if tag[1] in ('PRP', 'PRP$', 'NNP'):
-                        topic += ' {}'.format(tag[0])
-                    # or if the word is an adjective
-                    elif tag[1] in ('NN', 'JJ'):
-                        up_word = tag[0][0].upper()+tag[0][1:]
-                        g = nltk.pos_tag(nltk.word_tokenize(up_word))[0][1] == 'NNP'
-                        # If the word is titlecase then add it to the topic phrase
-                        if tag[0][0].isupper() or (tag[1] == 'NN' and topic == '') or (tag[1] == 'JJ' and g):
-                            topic += ' {}'.format(tag[0])
-                            continue
-                        needed_value += tag[0]
-                topic = topic.strip()
-                # print('Topic is {}, Needed Value is {}'.format(topic, needed_value))
-
-                # Iterate and return the known details on the topic
-                for obj in self.known_facts:
-                    if obj.name == topic.lower():
-                        x = obj.stats.get(needed_value)
-                        val = '' if not x else x
-                        if not val:
-                            # iterate through synonyms and answer the same way
-                            for synset in nltk.corpus.wordnet.synsets(needed_value):
-                                for lemma in synset.hyponyms():
-                                    for word in lemma.lemma_names():
-                                        m = obj.stats.get(' '.join(word.split('_')))
-                                        if m != None:
-                                            val = m
-                                            break
-                        if val:
-                            return val[0].upper() + val[1:]
-
-            # lowercase the question to make checking easier
-            q = question.lower()
-            if q.startswith('what is your name'):
-                # Tell the user the NPC's name
-                return 'My name is {}, What\'s your\'s?'.format()
-            elif q.startswith('how are you'):
-                # Check if there's a problem
-                if self.in_strife:
-                    # Tell the player about it
-                    return 'I need your help.'
-                else:
-                    # or just tell them that it's all good.
-                    return 'I\'m fine, thank you.'
-            elif q.startswith('are you ok'):
-                # Check if there's a problem
-                if self.in_strife:
-                    # tell the player about it
-                    return 'No, I need your help!'
-                # or just tell them that it's all good
-                return 'Yes, I\'m fine thank you'
-            elif q.startswith('whats the problem'):
-                # Check if we have a quest
-                if self.in_strife:
-                    # TODO Tell them the quest
-                    return 'AAAAHHH!'
-                else:
-                    # Tell them there's no problem if there isn't one
-                    return 'What problem? There\'s nothing for me to worry about.'
-        # Act confused if the npc can't respond
-        return 'I dont know.'
-
-    def parse_statement(self, statement, condition=None):
-        '''
-        Determine what the user is telling you and store it as fact,
-        even if it's cleary wrong.
-        '''
-        # If the NLTK is installed then run proper statement parsing
-        if has_nltk:
-            # TODO store the information and say some remark about it.
-            if not condition:
-                # Parse a standard statement without a conditional statement.
-
-                # Tokenise and Tag the words in the sentence
-                sentence = nltk.word_tokenize(statement)
-                tags = nltk.pos_tag(sentence)
-
-                # Set empty topic and value strings
-                topic = ''
-                stat = ''
-                value = ''
-
-                # Iterate and fill in the topic and value tags
-                for tag in tags:
-                    if tag[1] in ('PRP', 'PRP$', 'NNP'):
-                        topic += ' {}'.format(tag[0])
-                    elif tag[1] in ('NN', 'JJ'):
-                        up_word = tag[0][0].upper()+tag[0][1:]
-                        g = nltk.pos_tag(nltk.word_tokenize(up_word))[0][1] == 'NNP'
-                        if tag[0][0].isupper() or (tag[1] == 'NN' and topic == '') or (tag[1] == 'JJ' and g):
-                            topic += ' {}'.format(tag[0])
-                            continue
-                        stat += ' '+tag[0]
-                    elif tag[1] in ('CD', 'JJ'):
-                        value = tag[0]
-                topic = topic.strip()
-                stat = stat.strip()
-
-                # print('Topic is {}, Needed Value is {}'.format(topic, stat))
-                statement = [a if a != 'i' else 'you' for a in statement.lower().split()]
-                statement = ' '.join(statement)
-                obj = Topic(topic.lower(), {stat:statement})
-                self.known_facts.append(obj)
-
-            else:
-                # Parse a statement taking into account the given condition.
-                pass
-        # Otherwise just perform some preset responses
-        else:
-            q = statement.lower()
-            # If the person is contemplating suicide then give them a speech on why not to.
-            if 'kill yourself' in q or 'kill myself' in q or 'kms' in q or 'kys' in q:
-                return open('.talk.txt').read()
-            # If they call someone an idiot, tell them that they are mean.
-            elif 'idiot' in q and 'not an idiot' not in q:
-                return 'You\'re not being very nice.' if random.randint(0, 40) == 0 else 'I agree.'
-            # If the user contemplates an unspeakable evil, tell that it it wrong
-            # and to leave and never return! (User can still talk to NPC)
-            bad_verbs = ('kill', 'murder', 'rape')
-            for v in bad_verbs:
-                if v+' you' in q:
-                    return b[0].upper()+b[1:] + ' is wrong! LEAVE AND NEVER RETURN!!!'
-        # Act surprised when no other response can be made
-        return ('Really?', 'That\'s amazing!', 'Meh.', 'You\'re a genius!', 'I agree.')[random.randint(0, 4)]
-
-    def is_finished(self):
-        '''
-        A function to determine if the dialogue has finished.
-        '''
-        return False
-
-    def start_talk(self):
-        '''
-        Begin the talk with the NPC.
-        '''
-        # If the npc doesn't know the player
-        if self.is_afraid:
-            return ('{}: ...'.format(self.g_name))
-
-        else:
-            # If the NPC has a male style of talk
-            if self.g_speech == 'M':
-                return (self.g_name+": Welcome back, {}. {}".format(self.p_name, 'Willing to help now?' if self.in_strife else ''))
-            # If the NPC has a female style of talk
-            else:
-                return (self.g_name+': Hello, {}. {}'.format(self.p_name, 'I do need still your help, if you are willing to offer it.' if self.in_strife else ''))
-
-class Topic:
-    def __init__(self, name, fact):
-        self.name = name
-        self.stats = fact
+    def encode_quests(self):
+        quests = []
+        for q in self.current_quests:
+            quests.append(str(q))
+        return quests
 
 class Dialogue2:
     def __init__(self, player, node, npc, name=None):
@@ -599,13 +372,17 @@ class Dialogue2:
 
         self.g_speech += 'ale' if npc.gender == 'M' else 'emale'
 
+        # Get NPC variables
+        self.npc = npc
         self.g_name = npc.name
         self.in_strife = npc.has_quest
+        # Get player variables
         self.p_name = player.name
+        self.player = player
+
         self.area = node.typ
-        self.is_afraid = player.name not in npc.known_players
         if not name:
-            self.tree = Tree.get_generic_tree(self.g_speech)
+            self.tree = Tree.get_generic_tree(self.g_speech, self.in_strife)
         else:
             self.tree = Tree.get_tree(name)
         self.layers = []
@@ -685,6 +462,32 @@ class Dialogue2:
                     reply[a] = self.p_name
             # Format the reply string using the above string inserts
             reply = reply[0].format(*reply[1:])
+        if t[int(num)-1][0][0] == 'get quest' and self.npc.has_quest:
+            self.player.current_quests.append(Quest(self.player, self.g_name))
+            reply = 'Yes, here this bounty notice has the details\nQuest details added to journal.'
+            self.npc.has_quest = ''
+
+        if t[int(num)-1][0][0] == 'finish quest':
+            # If the player requests to finish a quest
+            for i, q in enumerate(self.player.current_quests):
+                # Iterate all quests and check if the quest is the right one
+                if q.init_pos == self.player.pos and q.npc_name == self.g_name:
+                    # Check if it's complete
+                    if q.is_complete(self.player):
+                        # If so, add the reward gold, remove the quest from the current_quests,
+                        # modify the NPC's reply and break the loop
+                        self.player.inventory.add('gold', q.reward)
+                        del self.player.current_quests[i]
+                        # If the player had to recover an item
+                        if q.is_recovery:
+                            reply = 'You found it! Thank goodness. I dont know what I would have done without it!'
+                        # Or if the player had to cull enemies
+                        else:
+                            reply = "Thank you. I can finally sleep well, knowing I won't be murdered by monsters while I sleep."
+                    break
+            # If the player hasnt been given a task yet
+            if not isinstance(self.npc.has_quest, str):
+                reply = 'What task? I haven\'t asked you to do anything'
         return '{}: {}'.format(self.p_name, t[int(num)-1][0][1]) + '\n{}: {}\n'.format(self.g_name, reply) + text
 
     def is_finished(self):
@@ -710,29 +513,29 @@ class Dialogue2:
 
 class Tree:
     @staticmethod
-    def get_generic_tree(gender):
+    def get_generic_tree(gender, in_strife):
         '''
         Get a generic dialogue tree
         '''
         g = gender.lower()
         # Read the speech file
         f = open('speech.txt').read().split('\n')
-        # Wittle down the options
-        f = [eval(a.split('|')[1]) for a in f if a.startswith('generic_{}'.format(g))]
+        # Wittle down the options based on gender and whether or not it has a quest
+        f = [eval(a.split('|')[1]) for a in f if a.startswith('generic_{}'.format(g)) and int(a.split('|')[0][-1])%2 == int(in_strife)]
         # Return one of the trees
         return f[random.randint(0, len(f)-1)]
 
     @staticmethod
     def get_tree(name):
         '''
-        Get a dialogue tree by name (used for quest NPC's)
+        Get a dialogue tree by name (used for story NPC's)
         '''
         for line in open('speech.txt').read().split('\n'):
             # Iterate and check if the tree on this line has the correct name
             if line.startswith(name):
                 return eval(line.split('|')[1])
         # Return a generic tree if the named tree cant be found
-        return Tree.get_generic_tree('male')
+        return Tree.get_generic_tree('male', False)
 
 class Trade:
     def __init__(self, player, node, p2=None):
@@ -745,7 +548,7 @@ class Trade:
 
     def has_item(self, name):
         '''
-        return if the store has a given item
+        Return if the store has a given item
         '''
         for item in self.store.items:
             i = Item(*item)
@@ -827,3 +630,63 @@ class Trade:
         printf('Storekeeper: Come again!')
         # Update the singleplayer player
         game.player = p
+
+class Quest:
+    '''
+    A class to handle the status of a non-story randomly-generated quest.
+    '''
+    def __init__(self, player, npc_name):
+        self.player = player
+        self.npc_name = npc_name
+        self.init_pos = player.pos
+        self.level = player.stats['level']+1
+        self.is_recovery = random.randint(0, 10) == 0
+        if self.is_recovery:
+            self.item_to_recover = round(random.randint(1, 5) * self.level)
+        else:
+            self.enemies_to_kill = random.randint(2,4)*self.level
+            self.current_kill_count = 0
+        self.reward = round(random.randint(10, 20)*self.level)
+
+    def is_complete(self, player):
+        '''
+        Return whether the player has fulfilled the requirements of the quest
+        '''
+        if self.is_recovery:
+            return player.has_item(self.item_to_recover)
+        else:
+            return self.current_kill_count >= self.enemies_to_kill
+
+    def is_eligible_for_update(self, pos):
+        '''
+        Check if the player is close enough to the initial area (used for enemy culling missions)
+        '''
+        if self.is_recovery:
+            return True
+        return get_distance_between(self.init_pos, pos) < 30 and self.current_kill_count <= self.enemies_to_kill
+
+    def __str__(self):
+        '''
+        Generate the string for saving a quest.
+        '''
+        if self.is_recovery:
+            return '{}%{}%{}%{}%{}'.format(self.npc_name, self.init_pos, int(self.is_recovery), self.item_to_recover, self.reward)
+        return '{}%{}%{}%{}%{}%{}'.format(self.npc_name, self.init_pos, int(self.is_recovery), self.current_kill_count, self.enemies_to_kill, self.reward)
+
+    @staticmethod
+    def get_by_string(string, player):
+        '''
+        Get a Quest object by a string and player.
+        '''
+        string = string.split('%')
+        q = Quest(player, '')
+        q.npc_name = string[0]
+        q.init_pos = eval(string[1])
+        q.is_recovery = bool(int(string[2]))
+        if q.is_recovery:
+            q.current_kill_count = int(string[3])
+            q.enemies_to_kill = int(string[4])
+        else:
+            q.item_to_recover = int(string[3])
+        q.reward = int(string[-1])
+        return q

@@ -14,7 +14,7 @@ class Enemy:
         # and pick a random one from it
         self.name = names[random.randint(0, x-2)]
         if random.randint(0, 50) == 0:
-            self.name = names[6]
+            self.name = 'Dragon'
         if self.name == 'Dragon':
             self.hp *= 2
             self.attack *= 1.5
@@ -214,6 +214,8 @@ class Combat:
 
             # Check if enemy is dead
             if enem_dead or self.enemy.hp <= 0:
+                # Update the quest
+                self.player.on_end_battle()
                 if conn:
                     return (self.player, random.randint(1, 7)*self.player.stats['level'],random.randint(1, 3))
                 else:
@@ -224,12 +226,13 @@ class Combat:
             if noticed and comm in ('1','2','3'):
                 armour = self.player.inventory.equipped['armour']
                 if armour:
+                    # Get damage resistance from the currently equipped armour
                     dam_res = armour.attrs['damage_resist']
                 else:
                     dam_res = 0
                 dam_res += self.player.stats.get('defense')//25
                 hp_loss = random.randint(2, int(self.enemy.attack))-dam_res if random.randint(0, 10) != 0 else 0
-                # Jokingly nullify damage if you are insanely overpowered
+                # nullify damage if you are overpowered
                 if hp_loss <= 0:
                     text += '\nThe {} hits you, but your armour nullifies the damage!'.format(self.enemy.name)
                 else:

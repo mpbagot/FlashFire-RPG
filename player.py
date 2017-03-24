@@ -609,6 +609,7 @@ class Dialogue2:
         else:
             self.tree = Tree.get_tree(name)
         self.layers = []
+        self.up = 0
 
     def start_talk(self):
         '''
@@ -626,7 +627,15 @@ class Dialogue2:
         '''
         Recurse another layer into the dialogue tree and respond as neccessary
         '''
+
+        if self.up:
+            # If the dialogue tree has requested a reversal in the tree,
+            # Then cut the layers to shift position back up the tree
+            self.layers = self.layers[:-(self.up)]
+            self.up = 0
+
         t = self.tree
+        # Iterate and cut down to the current tree layer
         for a in self.layers:
             # Keep getting the next layer down
             t = t[a][2]
@@ -640,21 +649,43 @@ class Dialogue2:
             for a in self.layers[:-1]:
                 t = t[a][2]
 
-            # For each reply
-            for i, a in enumerate(t):
-                # return what it could be back
-                text += '({}) {}\n'.format(i+1, a[0][0])
+            # If the dialogue tree can go down another layer and doesn't have a layer reversal in it
+            if isinstance(t[int(num)-1][2][0], tuple) or (isinstance(t[int(num)-1][2][0], str) and not t[int(num)-1][2][0].startswith('up')):
+                # For each reply
+                for i, a in enumerate(t[int(num)-1][2]):
+                    # return what it could be back
+                    text += '\n({}) {}'.format(i+1, a[0][0])
+            # If the tree has a layer reversal (goes back up several layers after response)
+            else:
+                # Duplicate the tree
+                t2 = self.tree
+                for a in self.layers[:-(self.up)]:
+                    # Iterate and build the response tree
+                    t2 = t2[a][2]
+                for i, a in enumerate(t2):
+                    # Add the possible replies to a string
+                    text += '\n({}) {}'.format(i+1, a[0][0])
 
-            text = ''
-            # For each reply
-            for i, a in enumerate(t[int(num)-1][2]):
-                # return what it could be back
-                text += '({}) {}\n'.format(i+1, a[0][0])
         if self.is_finished() == '':
             self.layers = self.layers[:-1]
             # An invalid response number was input
             return 'Invalid response number!\n'+text
-        return '{}: {}'.format(self.p_name, t[int(num)-1][0][1]) + '\n{}: {}\n'.format(self.g_name, t[int(num)-1][1]) + text
+        # Grab the reply string
+        reply = t[int(num)-1][1]
+        # If the string requires formatting (used for inserting dynamic variables)
+        if '{}' in reply:
+            # Split the string at the caret symbol
+            reply = reply.split('^')
+            for a in range(len(reply)):
+                # Iterate each variable that needs to be formatted in
+                # If it's one of the below, then switch it to the required variable
+                if reply[a] == 'g_name':
+                    reply[a] = self.g_name
+                elif reply[a] == 'p_name':
+                    reply[a] = self.p_name
+            # Format the reply string using the above string inserts
+            reply = reply[0].format(*reply[1:])
+        return '{}: {}'.format(self.p_name, t[int(num)-1][0][1]) + '\n{}: {}\n'.format(self.g_name, reply) + text
 
     def is_finished(self):
         '''
@@ -668,6 +699,12 @@ class Dialogue2:
                 return ''
                 # return None
         if isinstance(t[0], str):
+            # If the tree[0] is a string (therefore it has no further layers)
+            if t[0].startswith('up'):
+                # If the tree[0] is a reversal request then set the self.up
+                # to the requested number of layers
+                self.up = int(t[0].split('^')[1])
+                return False
             return True
         return False
 

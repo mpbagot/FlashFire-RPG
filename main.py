@@ -261,17 +261,22 @@ class Game:
                         printf(result.split('|')[1])
                     if result.startswith('alert'):
                         printf(result.split('|')[1])
+                        # Ask for an input
                         item = input('Choose an Item: ')
                         while True:
                             if not item:
+                                # If they input nothing, error
                                 print('No selection made!')
                             elif not item.isnumeric():
+                                # If they input a non-number, error
                                 if item == 'exit':
                                     break
                                 print('That\'s not an Item ID!')
                             elif int(item)-1 >= len(self.player.inventory.get_combat()) or int(item) < 1:
+                                # If the item ID is out-of-bounds, error
                                 print('Invalid Item ID!')
                             else:
+                                # Otherwise, break and send the result back
                                 break
                             item = input('Choose an Item: ')
                         conn.sendall(str(item).encode())
@@ -515,7 +520,7 @@ exit - Return to the game.'''
                     if name == n.name:
                         # If the NPC has the right name then adjust the array
                         # and start a Dialogue with it
-                        dia = Dialogue(self.player, node, n)
+                        dia = Dialogue2(self.player, node, n)
             if dia != 0:
                 # If a dialogue was created then run it
                 Game.run_dialogue(dia)
@@ -833,12 +838,12 @@ class MP_Game:
                     if name == 'Person':
                         if len(node.npc) > 0:
                             n = node.npc[random.randint(0, len(node.npc)-1)]
-                            dia = Dialogue(p, node, n)
+                            dia = Dialogue2(p, node, n)
                     # If a name was selected then find if that person is in the area and begin dialogue
                     else:
                         for n in node.npc:
                             if n.name == name:
-                                dia = Dialogue(p, node, n)
+                                dia = Dialogue2(p, node, n)
                         if not dia:
                             # If no NPC's were found then check the players
                             for player in self.players:

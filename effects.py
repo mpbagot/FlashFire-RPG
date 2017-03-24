@@ -1,6 +1,7 @@
 import sys
 from time import *
 import pygame
+import math
 
 pygame.init()
 
@@ -46,6 +47,8 @@ def play_sound(sname):
     '''
     Play the sound on the SFX channel with the given name
     '''
+    # sound = pygame.mixer.Sound('sound/fx/{}.ogg'.format(sname))
+    # sfx.play(sound)
     pass
 
 def play_music(mname):
@@ -66,3 +69,9 @@ def log(text):
     with open('log.txt', 'w') as f:
         t += '\n{}'.format(text)
         f.write(t)
+
+def get_distance_between(n1, n2):
+    '''
+    Determine the distance between two nodes (approximately)
+    '''
+    return int(math.sqrt((n1[0]-n2[0])**2+(n1[1]-n2[1])**2))

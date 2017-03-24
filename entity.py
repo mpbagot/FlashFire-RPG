@@ -74,7 +74,8 @@ class Combat:
         e.hp *= ((p.stats['level']//10)+1)
         e.attack *= ((p.stats['level']//8)+1)
         self.enemy = e
-        self.init_enem_hp = self.enemy.hp
+        self.enemy.hp = int(self.enemy.hp)
+        self.init_enem_hp = int(self.enemy.hp)
 
     def run(self, conn=None):
         '''
@@ -100,6 +101,8 @@ class Combat:
 
         noticed = False
         enem_dead = False
+
+        self.enemy.hp = int(self.enemy.hp)
 
         while True:
             if conn:
@@ -148,14 +151,18 @@ class Combat:
                     item = input('Choose an Item: ')
                     while True:
                         if not item:
+                            # If they input nothing, error
                             print('No selection made!')
                         elif not item.isnumeric():
+                            # IF they input a non-nubmber, error
                             if item == 'exit':
                                 break
                             print('That\'s not an Item ID!')
                         elif int(item)-1 >= len(self.player.inventory.get_combat()) or int(item) < 1:
+                            # If the ID they put in is out-of-bounds, error
                             print('Invalid Item ID!')
                         else:
+                            # Otherwise, break and use that item ID
                             break
                         item = input('Choose an Item: ')
                     if item == 'exit':

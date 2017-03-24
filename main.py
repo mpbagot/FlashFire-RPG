@@ -14,16 +14,17 @@ from time import *
 class Game:
     def __init__(self,title="Flashfire RPG"):
         print()
-        # import pygame
-        # pygame.init()
-        # play_music('title_music')
+        # Play the intro music
+        play_music('title_music')
         # Print the title in a nice box.
         print_title(title)
         play = input('Would you like to start a new game, join a LAN server\nor load a previous save?[new/join/load] ')
         self.id = 0
+        # Load the game details
         if play == "load":
             self.load(input('Save Game Filename: '))
         elif play == "join":
+            # Join a server based on hostname/ip address
             addr, sock = self.join_server(inputf('Hostname of Host Server: '))
             if addr == "failed":
                 printf('Critical Error! Exiting Game...')
@@ -31,6 +32,7 @@ class Game:
             self.run(addr, sock)
             return
         else:
+            # If all else fails, start a new game
             self.new()
         self.run()
 
@@ -174,8 +176,8 @@ class Game:
                 if adr:
                     # if the command doesn't require and server-client
                     # interaction, i.e the help command, then just run it client-side
-                    if comm.lower() == 'help':
-                        x = self.run_command('help')
+                    if comm.lower() in ('help', 'show quests', 'show journal'):
+                        x = self.run_command(comm.lower())
                         continue
 
                     # otherwise send commands to server instead
@@ -303,6 +305,8 @@ class Game:
                     printf('You gained {} XP!'.format(xp))
                     # Adjust the hp
                     self.player.stats['health'] += hp_change
+                    # Run an after-battle event
+                    self.player.on_end_battle()
 
                 if result == "dead":
                     # Print message
@@ -378,6 +382,7 @@ inventory - Start the inventory screen. Allows you to drop, eat and equip items.
 talk to <name>|person - Start a conversation with a person in the area.
 show map - Display a simple ASCII art map.
 show status - Display the player\'s current status and inventory.
+show journal|quests - List statistics about you currently active Quests.
 fight enemy|<name> - Initiate combat with a nearby enemy or named enemy.
 enter store - Enter a store if in a city area, allows for trade.
 save - Save the game (Singleplayer only)
@@ -402,6 +407,16 @@ exit - Return to the game.'''
                     text = ('Invalid help options!')
             # Lastly print and return
             printf(text)
+            return False
+
+        elif comm == "show journal" or comm == "show quests":
+            text = 'Quests:\n\n'
+            for q in self.player.current_quests:
+                text += 'Task-giver\'s name: {}\nQuest submission area: {}\n'.format(q.npc_name, q.init_pos)
+                text += 'Task: {}\nStatus: {}\n'.format('Monster Culling' if not q.is_recovery else 'Search-and-Recover',
+                str(q.current_kill_count)+'/'+str(q.enemies_to_kill)+' monsters' if not q.is_recovery else 'Complete!' if q.is_complete(self.player) else 'Incomplete.')
+                text += '\n'
+            print(text)
             return False
 
         pos = self.player.pos
@@ -511,19 +526,21 @@ exit - Return to the game.'''
                 # If the player is just looking for a random person
                 if len(node.npc) > 0:
                     # If any person is found nearby then create a dialogue with that person
-                    dia = Dialogue2(self.player, node, node.npc[random.randint(0, len(node.npc)-1)])
+                    n = random.randint(0, len(node.npc)-1)
+                    dia = Dialogue2(self.player, node, node.npc[n])
 
             else:
                 # If the player is looking for a specific NPC
-                for n in node.npc:
+                for n, npc in enumerate(node.npc):
                     # Iterate through all NPC's nearby
-                    if name == n.name:
+                    if name == npc.name:
                         # If the NPC has the right name then adjust the array
                         # and start a Dialogue with it
-                        dia = Dialogue2(self.player, node, n)
+                        dia = Dialogue2(self.player, node, npc)
+                        break
             if dia != 0:
                 # If a dialogue was created then run it
-                Game.run_dialogue(dia)
+                self.player, self.world.chunk_array[pos[1]//10][pos[0]//10].array[pos[1]%10][pos[0]%10].npc[n] = Game.run_dialogue(dia)
                 print()
                 return
             else:
@@ -635,6 +652,7 @@ exit - Return to the game.'''
 
             text = dial.respond(response)
             printf(text)
+        return (dial.player, dial.npc)
 
 class MP_Game:
     def __init__(self):

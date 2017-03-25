@@ -621,7 +621,7 @@ exit - Return to the game.'''
             self.player.xp += gxp[3]
 
             # Adjust level as neccessary
-            self.player.stats['level'] = int(5**(len(str(self.player.xp))-2))
+            self.player.level_up(True)
 
             # Add gold to the player's inventory
             self.player.inventory.add('gold', gxp[2]*self.player.stats['level'])
@@ -866,7 +866,8 @@ class MP_Game:
                 p.xp += gxp[2]
 
                 # Adjust level as neccessary
-                p.stats['level'] = int(5**(len(str(p.xp))-2))
+                p.level_up()
+                # p.stats['level'] = int(5**(len(str(p.xp))-2))
 
                 # Add gold to the player's inventory
                 p.inventory.add('gold', gxp[1][0]*p.stats['level'])

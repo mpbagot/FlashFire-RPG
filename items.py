@@ -68,7 +68,7 @@ class Store:
         max_item_id = level+5 if level <= 94 else 99
         avail_items = [a for a in range(1, max_item_id)]
         for a in range(7-level//20):
-            item = (avail_items[random.randint(0, max_item_id-2)], 1, level*(random.random()+0.5))
+            item = (avail_items[random.randint(0, max_item_id-2)], 1, round(level*(random.random()*5+0.5)))
             if item[0] not in [a[0] for a in items]:
                 items.append(item)
         return items

@@ -115,7 +115,7 @@ class World:
             typ = 'city'
         else:
             # If not a city then possibly add a city or just pick an area type
-            if random.randint(0, 1000) == 0:
+            if random.randint(0, 100) == 0:
                 typ = 'city'
             else:
                 typ = types[random.randint(0,2)]
@@ -244,7 +244,12 @@ class Chunk:
             for i, row in enumerate(details):
                 for j, node in enumerate(row):
                     # Add a loaded node to the array
-                    chunk.array[i][j] = Area_Node.get_by_string(node)
+                    if node.split('/')[2] == 'Town':
+                        chunk.array[i][j] = Quest_Town.get_by_string(node)
+                    elif node.split('/')[2] == 'lair':
+                        chunk.array[i][j] = End_Area()
+                    else:
+                        chunk.array[i][j] = Area_Node.get_by_string(node)
         else:
             # Otherwise, return 0
             chunk = 0

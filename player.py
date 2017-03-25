@@ -167,6 +167,19 @@ class Inventory:
             else:
                 text = 'Invalid Command!'
 
+    def count(self, name):
+        '''
+        Return the quantity of a given item in your inventory
+        '''
+        item = Item.get(name)
+        if item == None:
+            return
+        item = int(item)
+        for a in self.contents:
+            if a[0] == item:
+                return a[1]
+        return 0
+
     def add(self, name, quant):
         '''
         Add the given item at the given quantity to the inventory
@@ -209,13 +222,15 @@ class Inventory:
         '''
         Randomly populate an Inventory.
         '''
-        for a in range(getRandomStat(seed)):
+        i = 0
+        while i < getRandomStat(seed):
             # Get a random number (item_id) for the item
             item_id = getRandomStat(seed, 2)
             # Add 1 of that item to the inventory
-            # conts.append((item_id, 1))
-            item = Item(item_id, 1)
-            self.add(item.attrs['name'].lower(), 1)
+            if item_id < 15:
+                item = Item(item_id, 1)
+                self.add(item.attrs['name'].lower(), 1)
+                i += 1
 
         if give_gold:
             # If not playing on hard, then give 30 starting gold
@@ -381,10 +396,13 @@ class Dialogue2:
         self.player = player
 
         self.area = node.typ
-        if not name:
-            self.tree = Tree.get_generic_tree(self.g_speech, self.in_strife)
+        if self.area == 'Town':
+            self.tree = Tree.get_generic_quest_tree(self.g_speech)
         else:
-            self.tree = Tree.get_tree(name)
+            if not name:
+                self.tree = Tree.get_generic_tree(self.g_speech, True if isinstance(self.in_strife, str) else self.in_strife)
+            else:
+                self.tree = Tree.get_tree(name)
         self.layers = []
         self.up = 0
 
@@ -484,9 +502,10 @@ class Dialogue2:
                         # Or if the player had to cull enemies
                         else:
                             reply = "Thank you. I can finally sleep well, knowing I won't be murdered by monsters while I sleep."
+                        self.npc.has_quest = False
                     break
             # If the player hasnt been given a task yet
-            if not isinstance(self.npc.has_quest, str):
+            if self.npc.has_quest and not isinstance(self.npc.has_quest, str):
                 reply = 'What task? I haven\'t asked you to do anything'
         return '{}: {}'.format(self.p_name, t[int(num)-1][0][1]) + '\n{}: {}\n'.format(self.g_name, reply) + text
 
@@ -524,6 +543,19 @@ class Tree:
         f = [eval(a.split('|')[1]) for a in f if a.startswith('generic_{}'.format(g)) and int(a.split('|')[0][-1])%2 == int(in_strife)]
         # Return one of the trees
         return f[random.randint(0, len(f)-1)]
+
+    @staticmethod
+    def get_generic_quest_tree(gender):
+        '''
+        Get a generic dialogue tree for a story based NPC
+        '''
+        g = gender.lower()
+        # Read the speech file
+        f = open('speech.txt').read().split('\n')
+        # Wittle down the options to story-based and correct gender
+        f = [eval(a.split('|')[1]) for a in f if a.startswith('story_{}'.format(g))]
+        return r[random.randint(0, len(f)-1)]
+
 
     @staticmethod
     def get_tree(name):
@@ -638,13 +670,14 @@ class Quest:
     def __init__(self, player, npc_name):
         self.player = player
         self.npc_name = npc_name
-        self.init_pos = player.pos
+        self.init_pos = list(player.pos)
         self.level = player.stats['level']+1
         self.is_recovery = random.randint(0, 10) == 0
         if self.is_recovery:
             self.item_to_recover = round(random.randint(1, 5) * self.level)
         else:
             self.enemies_to_kill = random.randint(2,4)*self.level
+            self.enemies_to_kill = 1
             self.current_kill_count = 0
         self.reward = round(random.randint(10, 20)*self.level)
 
@@ -683,7 +716,7 @@ class Quest:
         q.npc_name = string[0]
         q.init_pos = eval(string[1])
         q.is_recovery = bool(int(string[2]))
-        if q.is_recovery:
+        if not q.is_recovery:
             q.current_kill_count = int(string[3])
             q.enemies_to_kill = int(string[4])
         else:

@@ -39,11 +39,29 @@ class Enemy:
         e.name = string[3]
         return e
 
+class Demon(Enemy):
+    def __init__(self, dif_ml, pos):
+        self.pos = pos
+        self.attack = random.randint(8, 13)*dif_ml
+        self.hp = random.randint(13, 18)*dif_ml
+        # pull in the customisable name list from the other file
+        names = [n for n in open('demon_names.txt').read().split('\n') if n != '']
+        x = len(names)
+        # and pick a random one from it
+        self.name = names[random.randint(0, x-2)]
+
+class Rane(Enemy):
+    def __init__(self, dif_ml, pos):
+        self.pos = pos
+        self.attack = 105
+        self.hp = 10000
+        self.name = 'Strevras Rane'
+
 class NPC:
-    def __init__(self, pos):
+    def __init__(self, pos, has_quest=False):
         self.pos = pos
         self.age = 18 + random.randint(0, 16)
-        self.has_quest = random.randint(0, 3) == 0
+        self.has_quest = True if has_quest else random.randint(0, 2) == 0
         self.hp = random.randint(5, 10)
         self.known_players = []
         self.name, self.gender = open('names.txt').read().split('\n')[random.randint(0, 9)].split(',')
@@ -52,7 +70,7 @@ class NPC:
         '''
         Create a string to save NPC data
         '''
-        return '{}^{}^{}^{}^{}'.format(str(self.pos), self.hp, self.name, self.gender, str(self.known_players))
+        return '{}^{}^{}^{}^{}^{}'.format(str(self.pos), self.hp, self.name, self.gender, str(self.known_players), int(self.has_quest) if not isinstance(self.has_quest, str) else 'None')
 
     @staticmethod
     def get_by_string(string):
@@ -66,6 +84,10 @@ class NPC:
         npc.name = string[2]
         npc.gender = string[3]
         npc.known_players = eval(string[4])
+        if string[5] == 'None':
+            npc.has_quest = ''
+        else:
+            npc.has_quest = bool(int(string[5]))
         return npc
 
 class Combat:
@@ -88,18 +110,30 @@ class Combat:
         if conn:
             # If playing as client, send success result to client
             conn.send('successXXX'.encode())
-            print(self.enemy)
             if not isinstance(self.enemy, Player):
                 # If the enemy is an enemy
-                conn.sendall('text|\nA {} lurks nearby...\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name).encode())
+                # otherwise, if the enemy is a demon
+                if isinstance(self.enemy, Demon):
+                    conn.sendall('text|\nThe Demon {} stands ready to fight!\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name).encode())
+                # If you are fighting Strevras Rane, the final boss
+                elif self.enemy.name == 'Strevras Rane':
+                    conn.sendall('text|\nStrevras Rane: Such a fool, you can never defeat me! Now you\'ll die!\n\n(1) Attack\n(2) Items\n(3) Run\n'.encode())
+                else:
+                    conn.sendall('text|\nA {} lurks nearby...\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name).encode())
             else:
                 # Or if the enemy is another player
                 conn.sendall('text|\n{} stands ready to fight!\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name).encode())
         else:
             # On singleplayer you can only fight enemies
-            printf('\nA {} lurks nearby...\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name))
+            if isinstance(self.enemy, Demon):
+                printf('\nThe Demon {} stands ready to fight!\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name))
+            # If you are facing off against the final boss
+            elif self.enemy.name == 'Strevras Rane':
+                printf('\nStrevras Rane: Such a fool, you can never defeat me! Now you\'ll die!\n\n(1) Attack\n(2) Items\n(3) Run\n')
+            else:
+                printf('\nA {} lurks nearby...\n\n(1) Attack\n(2) Items\n(3) Run\n'.format(self.enemy.name))
 
-        noticed = False
+        noticed = isinstance(self.enemy, Demon)
         enem_dead = False
 
         self.enemy.hp = int(self.enemy.hp)
@@ -208,8 +242,8 @@ class Combat:
             if self.player.stats['health'] <= 0:
                 if conn:
                     # Send the dead signal to the client
-                    conn.send('dead'.encode())
-                # and just return 'dead'
+                    conn.send('dead|{}'.format(self.enemy.name.split()[-1]).encode())
+                # and return the dead signal
                 return 'dead'
 
             # Check if enemy is dead
@@ -217,7 +251,10 @@ class Combat:
                 # Update the quest
                 self.player.on_end_battle()
                 if conn:
-                    return (self.player, random.randint(1, 7)*self.player.stats['level'],random.randint(1, 3))
+                    items = [random.randint(1, 7)*self.player.stats['level']]
+                    if isinstance(self.enemy, Demon):
+                        items.append(('demon eye', 1))
+                    return (self.player, items,random.randint(1, 3))
                 else:
                     printf('You killed the {}!'.format(self.enemy.name))
                     return ('win', self.player, random.randint(1, 7)*self.player.stats['level'],random.randint(1, 3))

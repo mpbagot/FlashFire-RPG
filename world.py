@@ -115,7 +115,7 @@ class World:
             typ = 'city'
         else:
             # If not a city then possibly add a city or just pick an area type
-            if random.randint(0, 100) == 0:
+            if random.randint(0, 500) == 0:
                 typ = 'city'
             else:
                 typ = types[random.randint(0,2)]
@@ -144,7 +144,7 @@ class World:
             return town
 
         # Possibly spawn a quest town for the storyline if they haven't all spawned
-        if random.randint(0,25000) == 777 and len(self.used_names) < open('towns.txt').read().split('\n'):
+        if random.randint(0,300) == 77 and len(self.used_names) < open('towns.txt').read().split('\n'):
             # Spawn lots of enemies
             enemies = [Enemy(dc[dif], [x,y]) for a in range(random.randint(3, 5))]
             # If it's an unlucky town, spawn a Demon boss there

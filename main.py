@@ -5,6 +5,7 @@ import hashlib
 import socket
 import sys
 import threading
+from entity import Demon
 from effects import *
 from player import *
 from world import *
@@ -12,7 +13,7 @@ import math
 from time import *
 
 class Game:
-    def __init__(self,title="Flashfire RPG"):
+    def __init__(self,title="Flashfire RPG\nThe Liberation of Hereva"):
         print()
         # Play the intro music
         play_music('title_music')
@@ -295,20 +296,29 @@ class Game:
                     printf('You killed the {}!'.format(en))
                     gxp = result.split('|')[1]
                     # unpack the tuple into variables
-                    g,xp,hp_change = eval(gxp)
-                    g *= self.player.stats['level']
+                    items,xp,hp_change,message = eval(gxp)
+                    items[0] *= self.player.stats['level']
                     # Add the gained experience and gold
                     self.player.xp += xp
-                    self.player.inventory.add('gold', g)
+                    self.player.inventory.add('gold', items[0])
+                    for item in items[1:]:
+                        self.player.inventory.add(item[0], item[1])
                     # Tell the player about it
-                    printf('You found {} Gold!'.format(g))
+                    printf('You found {} Gold!'.format(items[0]))
                     printf('You gained {} XP!'.format(xp))
+                    # Print the optional message
+                    printf(message)
                     # Adjust the hp
                     self.player.stats['health'] += hp_change
                     # Run an after-battle event
                     self.player.on_end_battle()
 
-                if result == "dead":
+                if result.startswith("dead"):
+                    if result.split('|')[1] == 'Rane':
+                        play_intro('endgame.txt')
+                        play_intro('credits.txt')
+                        Game()
+                        sys.exit()
                     # Print message
                     print('You have died!!!')
                     sleep(3)
@@ -319,7 +329,7 @@ class Game:
                     sys.exit()
                 if result.startswith('run'):
                     # tell the player that they escaped
-                        printf('You flee from battle. The {} does not follow.'.format(result.split('|')[1]))
+                    printf('You flee from battle. The {} does not follow.'.format(result.split('|')[1]))
                 return False
 
         elif comm == 'inventory':
@@ -449,11 +459,9 @@ exit - Return to the game.'''
             printf('There\'s no store here!')
 
         elif comm == 'save':
-            # Create a new thread and save with that
+            # save the game with the self.save function
             printf('Saving...')
-            t = threading.Thread(target=self.save)
-            t.daemon = False
-            t.start()
+            self.save()
             sleep(0.5)
 
         elif comm == "exit":
@@ -573,8 +581,11 @@ exit - Return to the game.'''
                     # Return an error message if there is no enemy with given name
                     printf('There is no enemy with that name!')
                     return False
+            # Create a combat instance
             combat = Combat(self.player, enemy)
+            # record the hp before combat
             init_hp = self.player.stats['health']
+            # Run the combat instance
             gxp = combat.run()
             combat = None
 
@@ -583,6 +594,10 @@ exit - Return to the game.'''
                 return False
 
             if gxp == "dead":
+                if enemy.name.split()[-1] == 'Rane':
+                    play_intro('endgame.txt')
+                    play_intro('credits.txt')
+                    sys.exit()
                 # Basically tell the player they died and restart the game
                 # Because perma-death
                 print('You have died!!!')
@@ -610,6 +625,14 @@ exit - Return to the game.'''
 
             # Add gold to the player's inventory
             self.player.inventory.add('gold', gxp[2]*self.player.stats['level'])
+            # IF we just defeated a demon boss then add a demon eye
+            if isinstance(enemy, Demon):
+                printf('You found a Demon Eye!')
+                # Add a demon eye
+                self.player.inventory.add('demon eye', 1)
+                if self.player.inventory.count('demon eye') == 3:
+                    # if this was the third demon eye, tell the player about the lair
+                    printf('The warlock\'s lair has appeared at {}'.format(self.world.spawn_endgame(self.player.pos)))
 
             x,y = self.player.pos
             # AND finally, remove the enemy that we just killed
@@ -819,10 +842,19 @@ class MP_Game:
                 # so it can update it's local player details
                 # also, send the hp change to the client
                 hp_change = p.stats['health']-init_hp
+                message = ''
+                # If the enemy we just defeated a demon boss, then add a demon eye
+                if isinstance(enemy, Demon):
+                    p.inventory.add('demon eye', 1)
+                    if self.player.inventory.count('demon eye') == 3:
+                        # if this was the third demon eye, tell the player about the lair
+                        message = ('The warlock\'s lair has appeared at {}'.format(self.world.spawn_endgame(self.player.pos)))
                 # Unpack the tuple, append the hp change, then repack
                 gxp = list(gxp)
-                gxp[1] += 1
+                gxp[1][0] += 1
                 gxp.append(hp_change)
+                # add a message if neccessary
+                gxp.append(message)
                 gxp = tuple(gxp)
                 # Send the tuple as a string to the client
                 conn.send(('win|'+str(gxp[1:])).encode())
@@ -837,7 +869,7 @@ class MP_Game:
                 p.stats['level'] = int(5**(len(str(p.xp))-2))
 
                 # Add gold to the player's inventory
-                p.inventory.add('gold', gxp[1]*p.stats['level'])
+                p.inventory.add('gold', gxp[1][0]*p.stats['level'])
 
                 x,y = p.pos
                 # AND finally, remove the enemy that we just killed
@@ -1041,8 +1073,10 @@ def print_title(string):
     Print the title you input in a nice box.
     '''
     print('='*80)
-    blank = (70-len(string))//2
-    print('||{}{}{}||'.format(blank*' '+'.::', string, '::.'+(blank+len(string)%2)*' '))
+    strings = string.split('\n')
+    for string in strings:
+        blank = (70-len(string))//2
+        print('||{}{}{}||'.format(blank*' '+'.::', string, '::.'+(blank+len(string)%2)*' '))
     print('='*80)
     print()
 

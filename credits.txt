@@ -1,0 +1,12 @@
+===============================================================================
+play_music credits
+
+Designer: Mitchell Bagot
+/
+Developer: Mitchell Bagot
+/
+Thanks to:
+/
+The Python Foundation for their amazing documentation on the sockets library.
+/
+Matty Hempstead for suggesting the multiplayer feature.

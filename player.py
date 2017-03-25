@@ -337,6 +337,24 @@ class Player:
                     # we can just del the itemstack if quantity is equal to cost.
                     del self.inventory.contents[j]
 
+    def level_up(self, should_print=False):
+        '''
+        Update the value of the player's statistics based on current xp
+        '''
+        # get the current level + 1
+        n = self.stats['level'] + 1
+        # While the experience required to get to the next level is less than current xp
+        while (n**2+n) <= self.xp:
+            # Level up
+            self.stats['level'] = n
+            if should_print:
+                printf('You are now Level {}!'.format(n))
+            for stat in self.stats:
+                # And increase all of the player's current stats
+                if stat != 'level':
+                    self.stats[stat] += 2
+            n += 1
+
     def on_end_battle(self):
         '''
         Update the changes to a current quest after a victory in battle
@@ -554,7 +572,7 @@ class Tree:
         f = open('speech.txt').read().split('\n')
         # Wittle down the options to story-based and correct gender
         f = [eval(a.split('|')[1]) for a in f if a.startswith('story_{}'.format(g))]
-        return r[random.randint(0, len(f)-1)]
+        return f[random.randint(0, len(f)-1)]
 
 
     @staticmethod

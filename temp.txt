@@ -1,0 +1,31 @@
+weapons:
+iron shortsword - 3
+farming scythe - 3
+blunt axe - 2
+iron sword - 5
+bow - 5
+swiss degen - 6
+cavalry sword - 12
+Halberd - 17
+crossbow - 25
+Zweihander - 40
+Culverin (gun) - 65
+matchlock pistol - 50
+wall gun - 85
+
+
+shields:
+wooden buckler - 2
+bronze shield - 8
+iron shield - 10
+lantern shield - 12
+
+spells:
+
+armour:
+quilted jackets - 1
+leather armour - 2
+chainmail - 4
+reinforced chainmail - 7
+iron chestplate - 12
+full plate armour - 25

@@ -1,0 +1,21 @@
+==============================================================================
+play_music credits
+
+Designer: Mitchell Bagot
+/
+Developer: Mitchell Bagot
+/
+Thanks to:
+/
+The Fallout 1/2 development team for their amazing leveling equation.
+/
+The Python Foundation for their amazing documentation on the sockets library.
+/
+Matty Hempstead for suggesting the multiplayer feature.
+/
+Audionautix.com for all of the music.
+/
+SoundBible for the sword clashing sound at the start of combat
+/
+Mr Mcfarlane for the explanation of pseudocode and everything else.
+/

@@ -14,7 +14,7 @@ development of FlashFire RPG.
     through the entire storyline of the game as well as save their
     progress in order to continue at a later time.
 
-	- Dialogue AI provided by Python 3's NLTK library
+	- Dialogue Engine with Dialogue Trees
 	- Turn-based combat system
 	- Store/merchantry system
 	- Stats and leveling system.

@@ -1,0 +1,144 @@
+BEGIN run_combat
+
+  GET enemy
+  GET player
+
+  play sound fight_start
+  play music fight_music
+
+  IF enemy name = "Strevras Rane" THEN
+    play_music final_fight
+  ENDIF
+
+  IF enemy is a demon THEN
+    PRINT '\nThe Demon ' + enemy name + ' stands ready to fight!\n\n(1) Attack\n(2) Items\n(3) Run\n'
+  ELSE IF enemy name = "Strevras Rane" THEN
+    PRINT '\nStrevras Rane: Such a fool, you can never defeat me! Now you\'ll die!\n\n(1) Attack\n(2) Items\n(3) Run\n'
+  ELSE
+    PRINT '\nA ' + enemy name + ' lurks nearby...\n\n(1) Attack\n(2) Items\n(3) Run\n'
+  ENDIF
+
+  SET noticed AS false
+
+  WHILE True
+    GET comm
+
+    IF comm = '1' THEN
+      SET weapon AS right hand item in player inventory equipped list
+
+      IF weapon not null THEN
+        SET dam AS weapon damage
+      ELSE
+        SET dam AS 1
+      ENDIF
+
+      IF noticed = true AND 90% chance THEN
+        ADD player attack divided by 25 TO dam
+        SUBTRACT dam FROM enemy hp
+        SET text AS "You strike at the " + enemy name + ". You deal " + dam + "damage."
+      ELSE IF noticed = false THEN
+        IF 2% chance THEN
+          SET enemy health AS 0
+          PRINT "Your surprise attack strikes the " + enemy name + "\'s weak spot."
+        ELSE IF  THEN
+          SET text AS 'The ' + enemy name + ' reflexively dodges the attack at the last moment. Your attack misses entirely'
+        ELSE
+          SET text AS 'The ' + enemy name + ' wavers as you strike it unexpectedly.'
+          SUBTRACT dam * 2 FROM enemy health
+        ENDIF
+      ELSE
+        SET text AS "You strike at the " + enemy name + ", but it moves too quickly and you miss."
+      ENDIF
+
+    ELSE IF comm = '2' THEN
+      PRINT player combat inventory
+
+      GET item
+      WHILE true = true
+        IF item = '' THEN
+          PRINT 'No selection made!'
+        ELSE IF item is not numeric THEN
+          IF item = 'exit' THEN
+            BREAK while loop
+          ENDIF
+          PRINT "That's not an Item ID!"
+        ELSE IF item integer - 1 >= length of player combat inventory OR item integer < 1 THEN
+          PRINT "Invalid Item ID!"
+        ELSE
+          BREAK while loop
+        ENDIF
+        GET item
+      SET item AS Item object FROM item
+
+      SET text AS "You use a " + item name + "!"
+
+      IF item health restore > 0 THEN
+        ADD item health restore TO player health
+        APPEND '\nYou gain ' + item health restore + ' HP!'
+        IF player health > player max health THEN
+          SET player health TO player max health
+        ENDIF
+      ENDIF
+      IF item damage > 0 THEN
+        SUBTRACT item damage FROM enemy health
+        APPEND "\n The " + enemy name + " loses " + item damage + " HP!" TO text
+      ENDIF
+    ELSE IF comm = '3' THEN
+      IF 10% chance OR noticed = false THEN
+        stop sound
+        PRINT 'You flee from battle. The ' + enemy name + ' does not follow.'
+        RETURN ('run', enemy name)
+      ELSE
+        SET text AS 'The ' + enemy name + ' blocks your way out!'
+      ENDIF
+    ELSE
+      SET text AS 'Invalid Option!'
+    ENDIF
+
+    IF player health <= 0 THEN
+      stop sound
+
+      RETURN 'dead'
+    ENDIF
+
+    IF enemy health <= 0 THEN
+      UPDATE quests of player
+
+      stop sound
+      PRINT 'You killed the ' + enemy name + '!'
+      RETURN ('win', player, random integer between 1 and 7, random integer between 0 and 3)
+    ENDIF
+
+    IF noticed = true AND comm = '1' or '2' or '3' THEN
+      SET armour AS armour item in player inventory equipped list
+      SET shield AS left hand item in player inventory equipped list
+
+      SET dam_res AS 0
+
+      IF armour not null THEN
+        ADD resistance of armour TO dam_res
+      ENDIF
+      IF shield not null THEN
+        ADD resistance of shield TO dam_res
+      ENDIF
+
+      ADD player defense TO dam_res
+      SET hp_loss AS enemy attack
+      SUBTRACT dam_res FROM hp_loss
+
+      IF hp_loss >= 0 THEN
+        PRINT '\nThe ' + enemy name + ' hits you, but your armour nullifies the damage!'
+      ELSE
+        SUBTRACT hp_loss FROM player health
+        PRINT '\nThe ' + enemy name + ' hits you for ' + hp_loss + ' damage!'
+      ENDIF
+    ENDIF
+
+    IF enemy health <= 30% of initial health THEN
+      APPEND '' TO text
+    ENDIF
+
+    SET noticed AS true
+
+    PRINT text + '\n\n(1) Attack\n(2) Items\n(3) Run\n'
+END run_combat

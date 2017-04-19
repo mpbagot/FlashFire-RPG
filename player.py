@@ -1,23 +1,21 @@
 import random
-import re
 from effects import *
 from items import *
-try:
-    import nltk
-    has_nltk = True
-except:
-    has_nltk = False
 
 def genSeed(text):
     '''
     Generate an all-integer seed from a Hexadecimal hash.
     '''
     s = []
+    # Iterate the characters in the text
     for a in text:
-        if isnum(a):
+        # If the character is an integer then add it to s
+        if a.isnumeric():
             s.append(a)
         else:
+            # otherwise add the ascii character of that number to s
             s.append(str(ord(a))[-1])
+    # Join s to a string and return
     return ''.join(s)
 
 def getRandomStat(seed, chars=None):
@@ -32,16 +30,6 @@ def getRandomStat(seed, chars=None):
     start = random.randint(0, 63-chars-1)
     s += seed[start:start+chars]
     return int(s)
-
-def isnum(n):
-    '''
-    Check if an input string is a valid integer
-    '''
-    try:
-        int(n)
-        return True
-    except:
-        return False
 
 class Inventory:
     def __init__(self, seed, name, give_gold):
@@ -171,12 +159,17 @@ class Inventory:
         '''
         Return the quantity of a given item in your inventory
         '''
+        # Get an item object based on the given name
         item = Item.get(name)
+        # If it's an invalid name then return 0
         if item == None:
-            return
+            return 0
         item = int(item)
+        # Iterate the inventory contents
         for a in self.contents:
+            # If the item id from above == item id in list
             if a[0] == item:
+                # return the item quantity in this inventory
                 return a[1]
         return 0
 
@@ -210,12 +203,19 @@ class Inventory:
         Get a sub-inventory of all items usable in combat
         '''
         contents = []
+        # Iterate the contents of the inventory
         for a in self.contents:
+            # If the item is usable in combat (food and spells)
             if Item(*a).attrs['type'] in ('food','spell'):
+                # add it to the combat inventory
                 contents.append(a)
+        # Create a new empty inventory
         inv = Inventory('1'*64, self.player, False)
+        # Set the equipped items as the same
         inv.equipped = self.equipped
+        # Set the contents from above as the inventory contents
         inv.contents = contents
+        # Return the inventory object
         return inv
 
     def generateContents(self, seed, give_gold):
@@ -500,7 +500,7 @@ class Dialogue2:
             reply = reply[0].format(*reply[1:])
         if t[int(num)-1][0][0] == 'get quest' and self.npc.has_quest:
             self.player.current_quests.append(Quest(self.player, self.g_name))
-            reply = 'Yes, here this bounty notice has the details\nQuest details added to journal.'
+            reply = 'Yes, here this bounty notice has the details.\nQuest details added to journal.'
             self.npc.has_quest = ''
 
         if t[int(num)-1][0][0] == 'finish quest':
@@ -556,7 +556,7 @@ class Tree:
         '''
         g = gender.lower()
         # Read the speech file
-        f = open('speech.txt').read().split('\n')
+        f = open('config/speech.txt').read().split('\n')
         # Wittle down the options based on gender and whether or not it has a quest
         f = [eval(a.split('|')[1]) for a in f if a.startswith('generic_{}'.format(g)) and int(a.split('|')[0][-1])%2 == int(in_strife)]
         # Return one of the trees
@@ -569,7 +569,7 @@ class Tree:
         '''
         g = gender.lower()
         # Read the speech file
-        f = open('speech.txt').read().split('\n')
+        f = open('config/speech.txt').read().split('\n')
         # Wittle down the options to story-based and correct gender
         f = [eval(a.split('|')[1]) for a in f if a.startswith('story_{}'.format(g))]
         return f[random.randint(0, len(f)-1)]
@@ -580,7 +580,7 @@ class Tree:
         '''
         Get a dialogue tree by name (used for story NPC's)
         '''
-        for line in open('speech.txt').read().split('\n'):
+        for line in open('config/speech.txt').read().split('\n'):
             # Iterate and check if the tree on this line has the correct name
             if line.startswith(name):
                 return eval(line.split('|')[1])
@@ -695,7 +695,6 @@ class Quest:
             self.item_to_recover = round(random.randint(1, 5) * self.level)
         else:
             self.enemies_to_kill = random.randint(2,4)*self.level
-            self.enemies_to_kill = 1
             self.current_kill_count = 0
         self.reward = round(random.randint(10, 20)*self.level)
 

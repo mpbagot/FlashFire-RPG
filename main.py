@@ -154,6 +154,7 @@ class Game:
         if adr or not self.world.is_loading:
             play_intro('intro.txt')
 
+        play_main()
         x = True
 
         #Main game loop, break out to exit game
@@ -175,8 +176,8 @@ class Game:
                 comm = input('Command >>> ')
 
                 if adr:
-                    # if the command doesn't require and server-client
-                    # interaction, i.e the help command, then just run it client-side
+                    # if the command doesn't require server-client
+                    # interaction, e.g the help command, then just run it client-side
                     if comm.lower() in ('help', 'show quests', 'show journal'):
                         x = self.run_command(comm.lower())
                         continue
@@ -411,7 +412,9 @@ equip <item_id> <left|right|armour> - Equip the item with item_id in the given s
 exit - Return to the game.'''
                 elif s == "trade":
                     # ditto as above for trade
-                    text = ''''''
+                    text = '''buy <item_name> - Purchase a single Item with item name.
+show - Display the store's current stock
+exit|leave - Leave the store'''
                 else:
                     # Or error if invalid option
                     text = ('Invalid help options!')
@@ -526,8 +529,6 @@ exit - Return to the game.'''
 
         elif comm.startswith('talk to'):
             dia = 0
-            # Create a list to be able to check which error occurs later on
-            g = [1,0]
             name = comm.split()[-1]
             name = name[0].upper() + name[1:]
             if name == 'Person':

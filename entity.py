@@ -1,6 +1,7 @@
 import random
 from player import Player
 from effects import *
+from time import sleep
 from items import Item
 
 class Enemy:
@@ -9,7 +10,7 @@ class Enemy:
         self.attack = random.randint(1,3)*dif_ml
         self.hp = random.randint(1, 10)*dif_ml
         # pull in the customisable name list from the other file
-        names = [n for n in open('.enemy_names.txt').read().split('\n') if n != '']
+        names = [n for n in open('config/enemy_names.txt').read().split('\n') if n != '']
         x = len(names)
         # and pick a random one from it
         self.name = names[random.randint(0, x-2)]
@@ -45,13 +46,13 @@ class Demon(Enemy):
         self.attack = random.randint(8, 13)*dif_ml
         self.hp = random.randint(13, 18)*dif_ml
         # pull in the customisable name list from the other file
-        names = [n for n in open('demon_names.txt').read().split('\n') if n != '']
+        names = [n for n in open('config/demon_names.txt').read().split('\n') if n != '']
         x = len(names)
         # and pick a random one from it
         self.name = names[random.randint(0, x-2)]
 
 class Rane(Enemy):
-    def __init__(self, dif_ml, pos):
+    def __init__(self, pos):
         self.pos = pos
         self.attack = 105
         self.hp = 10000
@@ -64,7 +65,7 @@ class NPC:
         self.has_quest = True if has_quest else random.randint(0, 2) == 0
         self.hp = random.randint(5, 10)
         self.known_players = []
-        self.name, self.gender = open('names.txt').read().split('\n')[random.randint(0, 9)].split(',')
+        self.name, self.gender = open('config/names.txt').read().split('\n')[random.randint(0, 9)].split(',')
 
     def __str__(self):
         '''
@@ -105,7 +106,10 @@ class Combat:
         '''
         # Play the battle intro sound
         play_sound('fight_start')
+        sleep(0.5)
         play_music('fight_music')
+        if self.enemy.name == 'Strevras Rane':
+            play_music('final_fight')
 
         if conn:
             # If playing as client, send success result to client
@@ -158,9 +162,9 @@ class Combat:
                     self.enemy.hp -= dam
                 elif not noticed:
                     if random.randint(0, 50) == 27:
-                        # If you get a 2% chance then you suprise attack inst-kill the enemy
+                        # If you get a 2% chance then you suprise attack insta-kill the enemy
                         if conn:
-                            conn.send(('Your surprise attack strikes the {}\'s weak spot.').encode())
+                            conn.send(('Your surprise attack strikes the {}\'s weak spot.'.format(self.enemy.name)).encode())
                         enem_dead = True
                     elif random.randint(0, 20) == 7:
                         # Or if you get an unlucky 5% chance then the enemy dodges the attack
@@ -221,11 +225,10 @@ class Combat:
                     # Add a helpful message
                     text += '\nThe {} loses {} HP!'.format(self.enemy.name, item.attrs.get('damage'))
 
-                # TODO de-iterate the stack when you use the item
-
-            elif comm == "3":
+            elif self.enemy.name != 'Strevras Rane' and comm == "3":
                 # if you get really lucky then you can run
                 if random.randint(0, abs(int((self.player.stats['speed']//10)+100-self.player.stats['level'])//10)) == 0 or not noticed:
+                    stop_sound()
                     if conn:
                         # If on a server, send a message to the client and exit
                         conn.send(('run|'+self.enemy.name).encode())
@@ -240,6 +243,8 @@ class Combat:
 
             # Check if the player is dead
             if self.player.stats['health'] <= 0:
+                # Stop the battle music, sfx, etc
+                stop_sound()
                 if conn:
                     # Send the dead signal to the client
                     conn.send('dead|{}'.format(self.enemy.name.split()[-1]).encode())
@@ -250,6 +255,8 @@ class Combat:
             if enem_dead or self.enemy.hp <= 0:
                 # Update the quest
                 self.player.on_end_battle()
+                # Stop the music
+                stop_sound()
                 if conn:
                     items = [random.randint(1, 7)*self.player.stats['level']]
                     if isinstance(self.enemy, Demon):
@@ -262,11 +269,13 @@ class Combat:
             # Let the enemy attack you
             if noticed and comm in ('1','2','3'):
                 armour = self.player.inventory.equipped['armour']
+                shield = self.player.inventory.equipped['left']
+                dam_res = 0
                 if armour:
                     # Get damage resistance from the currently equipped armour
-                    dam_res = armour.attrs['damage_resist']
-                else:
-                    dam_res = 0
+                    dam_res += armour.attrs['damage_resist']
+                if shield:
+                    dam_res += shield.attrs['damage_resist']
                 dam_res += self.player.stats.get('defense')//25
                 hp_loss = random.randint(2, int(self.enemy.attack))-dam_res if random.randint(0, 10) != 0 else 0
                 # nullify damage if you are overpowered
@@ -284,6 +293,6 @@ class Combat:
             noticed = True
 
             if conn:
-                conn.send(('text|'+str(self.enemy.hp)+text+'\n\n(1) Attack\n(2) Items\n(3) Run\n').encode())
+                conn.send(('text|'+text+'\n\n(1) Attack\n(2) Items\n(3) Run\n').encode())
             else:
                 printf(text+'\n\n(1) Attack\n(2) Items\n(3) Run\n')

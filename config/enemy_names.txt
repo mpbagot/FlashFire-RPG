@@ -1,0 +1,12 @@
+Goblin
+Wolf
+Bandit
+Troll
+Gnome
+Elf
+Gremlin
+Banshee
+Minotaur
+Spectre
+Phoenix
+Dragon

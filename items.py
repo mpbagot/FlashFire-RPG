@@ -15,7 +15,7 @@ class Item:
         '''
         a = {}
         #Open the hidden items dictionary and get the attributes from it.
-        items = open('.items.pydc').read().split('\n')[1:]
+        items = open('config/items.txt').read().split('\n')[1:]
         for line in items:
             line = line.strip().split(',')
             if line != [''] and line[0] == str(id):
@@ -35,7 +35,7 @@ class Item:
         '''
         Get the Item ID for an Item with a given name
         '''
-        for a in open('.items.pydc').read().split('\n')[1:]:
+        for a in open('config/items.txt').read().split('\n')[1:]:
             # print(a.split(','))
             if a and a.split(',')[1].lower() == name:
                 return a.split(',')[0]
@@ -65,7 +65,7 @@ class Store:
         Get the store's inventory based on the player's level
         '''
         items = []
-        max_item_id = level+5 if level <= 94 else 99
+        max_item_id = level+5 if level <= 44 else 49
         avail_items = [a for a in range(1, max_item_id)]
         for a in range(7-level//20):
             item = (avail_items[random.randint(0, max_item_id-2)], 1, round(level*(random.random()*5+0.5)))

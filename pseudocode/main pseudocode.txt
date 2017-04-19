@@ -1,0 +1,331 @@
+############################################################
+I used GET for input, whether for function args or
+for stdin
+############################################################
+
+BEGIN main
+
+  GET mpsp
+
+  IF mpsp != 'MP' THEN
+    RUN Game
+  ELSE
+    run multiplayer game
+  ENDIF
+
+END main
+
+===============================================================================
+
+BEGIN Game
+
+  play music
+
+  print title
+
+  GET gamemode
+
+  IF gamemode == 'load' THEN
+    RUN load
+  ELSE IF gamemode == 'join' THEN
+    GET hostname
+    join the server at hostname
+    RUN run
+  ELSE
+    RUN new
+  ENDIF
+
+  RUN run
+
+END Game
+
+===============================================================================
+
+BEGIN load
+
+  GET file
+  GET lines FROM file
+
+  FOR line IN lines
+    IF line starts with 'player' THEN
+      GET player FROM line
+    ELSE IF line starts with 'inventory' THEN
+      GET players inventory FROM line
+    ELSE
+      GET world FROM line
+    ENDIF
+
+END load
+
+===============================================================================
+
+BEGIN run
+
+  GET conn
+  SET print_desc TO True
+
+  PRINT 'Starting Game...'
+
+  SLEEP for 1 second
+
+  FOR 0 TO 50 STEP 1
+    PRINT ''
+
+  WHILE True
+    IF print_desc is True THEN
+      IF conn not '' THEN
+        SEND world description over conn to client-side
+      ELSE
+        PRINT world description
+      ENDIF
+    ENDIF
+    GET comm
+
+    IF conn not '' THEN
+      IF comm is 'help' or 'show quests' or 'show journal' THEN
+        RUN run_command
+      ELSE
+        RUN run-command
+        SEND result over conn to client-side
+      ENDIF
+    ELSE
+      RUN run_command
+    ENDIF
+  ENDWHILE
+  RUN save
+
+END run
+
+===============================================================================
+
+BEGIN save
+
+  GET filename
+
+  GET player save string
+  GET player inventory save string
+  GET world save string
+
+  GET file WITH filename
+  APPEND player save string TO file
+  APPEND inventory save string TO file
+  APPEND world save string TO file
+
+END save
+
+===============================================================================
+
+BEGIN run_command
+
+  GET comm
+
+  IF comm starts with 'help' THEN
+    PRINT help message
+
+  ELSE IF comm = 'show journal' or 'show quests' THEN
+    GET player quests
+    FOR quest IN player quests
+      PRINT quest giver's name
+      PRINT quest submission area
+      PRINT quest requirements
+      PRINT quest completion
+  ELSE
+    GET player pos
+    GET current area
+
+    IF comm = 'show status' THEN
+      PRINT player stats
+    ELSE IF comm = 'enter store' THEN
+      IF current area name = 'city' THEN
+        RUN run_trade
+      ENDIF
+    ELSE IF comm = 'save' THEN
+      RUN save
+    ELSE IF comm = 'exit' THEN
+      EXIT game
+    ELSE IF comm = 'show map' THEN
+      SET array AS []
+      FOR -2 TO 1 STEP 1
+        GET for loop value AS a
+        APPEND [] TO array
+        FOR -3 TO 2 STEP 1
+          GET for loop value AS b
+          IF 999 >= player pos x -3 + b >= 0 and 999 >= player pos y -2 + a THEN
+            APPEND area node TO last array IN array
+          ELSE
+            APPEND null node TO last array IN array
+          ENDIF
+        ENDFOR
+      ENDFOR
+
+      SET map_art AS []
+
+      FOR 0 TO array length STEP 1
+
+        GET for loop value AS a
+
+        SET row AS array[a]
+
+        IF a != 0 THEN
+          SET top AS ''
+          FOR node IN row
+            IF node.hasNorth THEN
+              APPEND '##  ##' TO top
+            ELSE
+              APPEND '######' TO top
+            ENDIF
+          APPEND top TO map_art
+        ELSE
+          APPEND '#'*8*row length
+        ENDIF
+
+        FOR 0 TO 3 STEP 1
+          SET line AS ''
+          FOR node IN row
+            SET m AS the index of node IN row
+            SET r AS ''
+            IF a = 1 THEN
+              IF m = 3 and row = 2 THEN
+                IF node.hasWest THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+                APPEND "you're"
+                IF node.hasEast THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+              ELSE IF node.type = 'grass_plains' THEN
+                IF node.hasWest THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+                APPEND "grass "
+                IF node.hasEast THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+              ELSE
+                IF node.hasWest THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+                APPEND node.type
+                IF node.hasEast THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+              ENDIF
+            ELSE IF a = 2 THEN
+              IF m = 3 and row = 2 THEN
+                IF node.hasWest THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+                APPEND " here!"
+                IF node.hasEast THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+              ELSE IF node.type = 'grass_plains' THEN
+                IF node.hasWest THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+                APPEND "plains"
+                IF node.hasEast THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+              ELSE
+                IF node.hasWest THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+                APPEND node.type
+                IF node.hasEast THEN
+                  APPEND ' ' TO r
+                ELSE
+                  APPEND '#' TO r
+                ENDIF
+              ENDIF
+            ELSE
+              SET r AS '#      #'
+            ENDIF
+
+            APPEND r TO line
+
+          ENDFOR
+
+          APPEND line to map_art
+        ENDFOR
+      ENDFOR
+
+      APPEND '#'*8*row length
+
+      FOR line IN map_art
+        PRINT line
+    ENDIF
+  ELSE IF comm starts with 'talk to' THEN
+    GET name
+    SET dia AS null
+
+    IF name = 'Person' THEN
+      IF length of npc array IN node > 0 THEN
+        GET random integer between 0 and the length of npc array
+        SET dia AS a new Dialogue object
+      ENDIF
+    ELSE
+      FOR 0 TO length of npc array STEP 1
+        GET for loop value AS a
+        SET npc AS npc array[a]
+
+        IF name = npc name THEN
+          SET dia AS a new Dialogue object
+          break loop
+        ENDIF
+    ENDIF
+
+    IF dia not null THEN
+      RUN run_dialogue
+    ELSE IF  THEN
+      IF name = 'Person' THEN
+        PRINT "There's no-one here!"
+      ELSE
+        PRINT "There's no-one here named that!"
+      ENDIF
+    ENDIF
+  ELSE IF comm starts with 'go' THEN
+    GET direction
+
+    USE dc WITH dictionary data type
+
+    SET dc AS {'north':[1, -1, node.hasNorth], 'south':[1, 1, node.hasSouth],
+                'east':[0, 1, node.hasEast], 'west':[0, -1, node.hasWest]}
+
+    SET tup AS dc[direction]
+
+    IF tup and tup[2] THEN
+      ADD tup[1] to player pos x value
+      PRINT 'Moving ' + direction + '...'
+    ELSE
+      PRINT 'No passage!'
+    ENDIF
+  ELSE
+    PRINT 'Invalid Command!'
+  ENDIF
+
+END run_command
+
+===============================================================================

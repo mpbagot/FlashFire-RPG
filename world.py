@@ -144,7 +144,7 @@ class World:
             return town
 
         # Possibly spawn a quest town for the storyline if they haven't all spawned
-        if random.randint(0,300) == 77 and len(self.used_names) < open('towns.txt').read().split('\n'):
+        if random.randint(0,300) == 77 and len(self.used_names) < len(open('config/towns.txt').read().split('\n')):
             # Spawn lots of enemies
             enemies = [Enemy(dc[dif], [x,y]) for a in range(random.randint(3, 5))]
             # If it's an unlucky town, spawn a Demon boss there
@@ -153,7 +153,7 @@ class World:
             # Create several people
             npc = [NPC(pos, True) for a in range(random.randint(2, 4))]
             # Create the node
-            node = Quest_Town(hasNorth, hasSouth, hasEast, hasWest, enemies, npc, self.used_names)
+            node = Quest_Town(True, True, True, True, enemies, npc, self.used_names)
             # Add the towns name to the used names
             self.used_names.append(node.town_name)
             return node
@@ -179,7 +179,7 @@ class World:
             x2 = random.randint(0, 9)
             y2 = random.randint(0, 9)
         # Set the selected node as an end area
-        self.chunk_array[y//10][x//10].array[y2][x2] = End_Area()
+        self.chunk_array[y//10][x//10].array[y2][x2] = End_Area([x+x2, y+y2])
         # Return an xy coordinate list of the spawned node
         return [x+x2, y+y2]
 
@@ -244,7 +244,7 @@ class Chunk:
             for i, row in enumerate(details):
                 for j, node in enumerate(row):
                     # Add a loaded node to the array
-                    if node.split('/')[2] == 'Town':
+                    if node.split('/')[2] == 'town':
                         chunk.array[i][j] = Quest_Town.get_by_string(node)
                     elif node.split('/')[2] == 'lair':
                         chunk.array[i][j] = End_Area()
@@ -302,7 +302,7 @@ class Area_Node:
         Get the description text to display when player looks around
         '''
         string = ''
-        with open('desc.txt') as f:
+        with open('config/desc.txt') as f:
             # Load the description dictionary
             l = [a.split('|') for a in f.read().split('\n') if a != '']
             dc = {a[0]:a[1:] for a in l}
@@ -379,14 +379,14 @@ class Null_Node(Area_Node):
 
 class Quest_Town(Area_Node):
     def __init__(self,n,s,e,w,enemies, npc, used_names=[], town_name=None):
-        super().__init__(n,s,e,w,enemies,'Town',npc)
+        super().__init__(n,s,e,w,enemies,'town',npc)
         self._npc = list(self.npc)
         self.npc = []
         self.is_cleared = False
         if town_name:
             self.town_name = town_name
         else:
-            names = open('towns.txt').read().split('\n')
+            names = open('config/towns.txt').read().split('\n')
             names = [a for a in names if a not in used_names]
             if len(names)-1 == 0:
                 self.town_name = 'Random name'
@@ -456,15 +456,15 @@ class Quest_Town(Area_Node):
         #Get the enemies
         enemies = [Enemy.get_by_string(a) for a in eval(string[0])]
         #Get the node area type
-        typ = 'Town'
+        typ = 'town'
         npc = [NPC.get_by_string(a) for a in eval(string[2])]
         node = Quest_Town(n, s, e, w, enemies, npc, town_name=string[3])
         node.is_cleared = bool(int(string[4]))
         return node
 
 class End_Area(Area_Node):
-    def __init__(self):
-        super().__init__(True, True, True, True, [Rane()], 'lair', [])
+    def __init__(self, pos):
+        super().__init__(True, True, True, True, [Rane(pos)], 'lair', [])
 
     def get_description(self):
         '''

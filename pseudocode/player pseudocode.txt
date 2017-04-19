@@ -1,0 +1,142 @@
+############################################################
+I used GET for input, whether for function args or
+for stdin
+############################################################
+
+BEGIN dialogue_respond
+
+  GET layers
+  GET layers_up_to_go
+
+  IF layers_up_to_go not 0 THEN
+    REMOVE layers_up_to_go objects FROM the end of layers
+    SET layers_up_to_go TO 0
+  ENDIF
+
+  GET tree
+  FOR 0 TO layers length STEP 1
+    SET a AS the value of for loop
+    SET layer AS layers[a]
+
+    SET tree AS tree[layer][2]
+
+  GET response
+  APPEND response integer -1 TO layers
+  SET text AS ''
+
+  IF not finished dialogue THEN
+
+    IF tree[0] is a tuple OR tree[0] is a string AND tree[0] doesn't start with 'up' THEN
+      FOR 0 TO x STEP 1
+        SET i AS for loop value
+        SET a AS tree[i]
+        APPEND '(' + (i + 1) + ')' TO text
+        APPEND a[0][0] TO text
+    ENDIF
+  ELSE IF not finished returns '' THEN
+    REMOVE last object FROM layers
+    PRINT 'Invalid Response Number!\n' + text
+  ENDIF
+
+  GET reply
+
+  IF reply needs formatting THEN
+    GET npc name AS npc_name
+    GET player name AS player_name
+
+    SPLIT reply AT each '^' INTO an array
+    FOR 0 TO length of reply STEP 1
+      SET a AS for loop value
+      IF reply[a] = 'g_name' THEN
+        SET reply[a] AS npc_name
+      ELSE IF reply[a] = 'p_name' THEN
+        SET reply[a] AS player_name
+      ENDIF
+    FORMAT reply list INTO reply[0]
+  ENDIF
+  IF tree[0][0] = 'get quest' THEN
+    APPEND a quest object TO player quest list
+    SET reply AS 'Yes, here this bounty notice has the details.\nQuest details added to journal.'
+  ENDIF
+  IF THEN tree[0][0] = 'finish quest' THEN
+    FOR 0 TO length of player quest list STEP 1
+      SET i AS for loop value
+      SET q AS the i-th object in player quest list
+
+      IF coordinates of q = player position AND g_name = npc_name of q THEN
+        IF quest q is complete THEN
+          ADD gold item TO player's inventory
+          DELETE object q from the player quest list
+
+          IF q is a recovery quest THEN
+            SET reply AS 'You found it! Thank goodness. I dont know what I would have done without it!'
+          ELSE
+            SET reply AS "Thank you. I can finally sleep well, knowing I won't be murdered by monsters while I sleep."
+          ENDIF
+        ENDIF
+      ENDIF
+    IF npc has a quest AND npc hasnt given it THEN
+      SET reply AS 'What task? I haven\'t asked you to do anything'
+    ENDIF
+  ENDIF
+
+  PRINT playername + response + npc_name + reply + text
+END dialogue_respond
+
+===============================================================================
+
+BEGIN run_trade
+
+  SET text AS a string representation of the store contents
+
+  PRINT text
+  GET response
+
+  WHILE response != 'leave' or 'exit'
+    IF response starts with 'show' THEN
+      SET text AS string representation of the store contents
+    ELSE IF response starts with 'buy' THEN
+      SET name AS the second word in response
+      IF store has item with name THEN
+        SET cost AS item cost
+        IF player's gold >= cost THEN
+          REMOVE cost gold from player inventory
+          ADD purchased item TO player inventory
+
+          SET text AS 'You purchased a ' + purchased item
+        ELSE
+          SET text AS 'You dont have enough Gold for that!'
+        ENDIF
+      ELSE
+        SET text AS 'We dont sell that here.'
+      ENDIF
+    ELSE
+      SET text AS 'Storekeeper: Huh?'
+    ENDIF
+
+    PRINT text
+    GET response
+
+  PRINT 'Storekeeper: Come again!'
+END run_trade
+
+===============================================================================
+
+BEGIN level_up
+
+  GET player
+
+  SET n AS player level + 1
+
+  WHILE n*(n+1) <= player xp
+    SET player level AS n
+    PRINT 'You are now Level ' + n
+
+    FOR stat IN player stats
+      IF stat != 'level' THEN
+        ADD 2 TO stat
+      ENDIF
+
+    ADD 1 TO n
+
+END level_up

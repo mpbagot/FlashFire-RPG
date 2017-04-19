@@ -1,0 +1,130 @@
+BEGIN make_node
+
+  SET hasNorth AS false
+  SET hasSouth AS false
+  SET hasEast AS false
+  SET hasWest AS false
+
+  SET x AS x position of node in chunk
+  SET y AS y position of node in chunk
+
+  WHILE the number of true values in {hasNorth, hasSouth, hasEast, hasWest} < 2
+    IF x > 0 THEN
+      IF random number between 0 and 5 = 0 OR node to the west has eastward passage THEN
+        SET hasWest AS true
+      ENDIF
+    ELSE IF random number between 0 and 3 is not 0 AND chunk is not on western edge of world THEN
+      SET hasWest AS true
+    ENDIF
+    IF x < 9 THEN
+      IF random number between 0 and 5 = 0 THEN
+        SET hasEast AS true
+      ENDIF
+    ELSE IF random number between 0 and 3 is not 0 and chunk is not on eastern edge of world THEN
+      SET hasEast AS true
+    ENDIF
+    IF y > 0 THEN
+      IF random number between 0 and 5 = 0 OR node to the north has southward passage THEN
+        SET hasNorth AS true
+      ENDIF
+    ELSE IF random number between 0 and 3 is not 0 AND chunk is not on northern edge of world THEN
+      SET hasNorth AS true
+    ENDIF
+    IF y < 9 THEN
+      IF random number between 0 and 5 = 0 THEN
+        SET hasSouth AS true
+      ENDIF
+    ELSE IF random number between 0 and 3 is not 0 AND chunk is not on southern edge of world THEN
+      SET hasSouth AS true
+    ENDIF
+
+  SET enemies AS []
+
+  IF random integer between 1 and 9 divided by 2 = 1 THEN
+    FOR 0 TO random integer between 0 and 3 STEP 1
+      APPEND new enemy object to enemies
+  ENDIF
+
+  SET types AS ['forest','desert','grass_plains']
+
+  SET chunk AS chunk that this node is in
+
+  SET i AS x > 0 AND y > 0 AND chunk type = 'city'
+  SET j AS x > 0 AND chunk type = 'city'
+  SET k AS y > 0 AND chunk type = 'city'
+
+  IF (i OR j OR k) AND random integer between 0 and 3 != 0 THEN
+    SET typ AS 'city'
+  ELSE
+    IF 0.2% chance THEN
+      typ = 'city'
+    ELSE
+      SET typ AS random string from types
+    ENDIF
+  ENDIF
+
+  SET npc AS []
+  SET pos AS [x,y]
+
+  IF typ != 'city' AND random integer between 0 and 5 divided by 2 > 0 THEN
+    FOR 0 TO random integer between 0 and 4 STEP 1
+      APPEND new npc object to npc
+
+  IF start = true THEN
+    SET enemies AS an array of 4 enemy objects
+
+    FOR enemy IN enemies
+      enemy.hp = 2+random integer between 0 and 5
+      enemy.attack = 3+random integer between 0 and 3
+
+    SET npc AS an array of 3 npc objects
+    SET town AS a new quest town object
+    SET town name AS 'Little Ivywood'
+
+    RETURN town
+  ENDIF
+
+  IF 0.3% chance AND a unique name is still available THEN
+    SET enemies AS an array of enemy objects
+
+    IF 50% chance THEN
+      APPEND a demon object TO enemies
+    ENDIF
+    SET npc AS an array of npc objects
+    SET node as a new quest_town object
+
+    APPEND node name TO used_names
+
+    RETURN node
+  ENDIF
+
+  RETURN new area node object
+END make_node
+
+===============================================================================
+
+BEGIN get_node
+
+  SET x AS integer of player position x divided by 10
+  SET y AS integer of player position y divided by 10
+
+  SET chunk AS chunk_array[y][x]
+
+  IF chunk == 0 THEN
+    IF world is being loaded THEN
+      GET chunk FROM save string
+
+      IF chunk loaded successfully THEN
+        SET chunk_array[y][x] AS chunk
+      ELSE
+        SET chunk AS a new chunk
+        SET chunk_array[y][x] AS chunk
+      ENDIF
+    ELSE
+      SET chunk AS a new chunk
+      SET chunk_array[y][x] AS chunk
+    ENDIF
+  ENDIF
+
+  RETURN chunk_array[y][x]'s array[(player position y)%10][(player position x)%10]
+END get_node

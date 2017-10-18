@@ -933,6 +933,7 @@ class MP_Game:
             # Open the socket
             server = socket.socket()
             hostname = socket.gethostname()
+            hostname = '0.0.0.0'
             port = 6657
             # Bind the hostname and port data to the opened socket
             server.bind((hostname, port))
